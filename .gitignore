@@ -1,4 +1,62 @@
-build
-*.log
+# ============================================================
+# cocotb + Verilator
+# ============================================================
+sim_build/
+results.xml
+*.vcd
+*.fst
+dump.vcd
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ============================================================
+# Vivado
+# ============================================================
+
+# Generated project directories (non-project-mode build output,
+# and GUI project mode's own generated trees if ever used)
+build/
+*.gen/
+*.srcs/
+*.runs/
+*.cache/
+*.hw/
+*.sim/
+.Xil/
+.ip_user_files/
+
+# Log/journal files Vivado writes on every invocation
 *.jou
-synReport.txt*
+*.log
+*.str
+vivado_*.backup.jou
+vivado_*.backup.log
+vivado_pid*.str
+webtalk*.log
+webtalk*.jou
+webtalk_pa.xml
+
+# Build outputs - regeneratable from create_project.tcl/build.tcl + RTL
+*.bit
+*.bit.bin
+*.bin
+*.dcp
+*.rpt
+*.ltx
+*.wdb
+*.pb
+
+# GUI project mode's own project file (if you ever open a project
+# via the wizard instead of scripting it - shouldn't normally appear
+# given the workflow we've set up, but ignore defensively)
+*.xpr
+
+# ============================================================
+# General simulator / editor noise
+# ============================================================
+*.wlf
+transcript
+work/
+*.swp
+.vscode/
