@@ -217,6 +217,14 @@ proc create_root_design { parentCell } {
    CONFIG.ASSOCIATED_BUSIF {M_AXI_GP0} \
  ] $M_AXI_GP0_ACLK
 
+
+
+  ####################################
+  set FCLK_CLK0 [ create_bd_port -dir O -type clk -freq_hz 125000000 FCLK_CLK0 ]
+  ####################################
+
+  
+
   set S_AXI_HP0_aclk [ create_bd_port -dir I -type clk -freq_hz 125000000 S_AXI_HP0_aclk ]
   set S_AXI_HP1_aclk [ create_bd_port -dir I -type clk -freq_hz 125000000 S_AXI_HP1_aclk ]
   set S_AXI_HP2_aclk [ create_bd_port -dir I -type clk -freq_hz 125000000 S_AXI_HP2_aclk ]
