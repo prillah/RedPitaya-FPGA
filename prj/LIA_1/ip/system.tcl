@@ -220,10 +220,18 @@ proc create_root_design { parentCell } {
 
 
   ####################################
+
   set FCLK_CLK0 [ create_bd_port -dir O -type clk -freq_hz 125000000 FCLK_CLK0 ]
+
+  # set FCLK_CLK0 [ ... ] -> [] are the return value, so set FCLK.. to whatever gets returned
+  # create_bd_port -> creates new ordinary (not bundled) external  port on the currently active block design.
+  # -dir O -> direction, from the block design's own perspective (O = output, this port sends a signal out of the block design, I for input, IO for bidirectional).
+  # -type clk -> this ports role is a clock not just generic data.
+  # -freq_hz 125000000 -> frequency as metadata on the port (other IP blocks' "block automation" can read this to auto-configure themselves correctly) (what .xdc timing constraints (create_clock) are checked against)
+  # FCLK_CLK0 -> Name given to that new port.
+
   ####################################
 
-  
 
   set S_AXI_HP0_aclk [ create_bd_port -dir I -type clk -freq_hz 125000000 S_AXI_HP0_aclk ]
   set S_AXI_HP1_aclk [ create_bd_port -dir I -type clk -freq_hz 125000000 S_AXI_HP1_aclk ]
@@ -248,6 +256,23 @@ proc create_root_design { parentCell } {
 
   # Create instance: proc_sys_reset_3, and set properties
   set proc_sys_reset_3 [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_3 ]
+
+
+
+  ####################################
+
+  connect_bd_net -net processing_system7_FCLK_CLK0  [get_bd_pins processing_system7/FCLK_CLK0] \
+  [get_bd_pins proc_sys_reset_0/slowest_sync_clk] \
+  [get_bd_ports FCLK_CLK0]
+
+  # connect_bd_net -> creates a net (a wire, electrically. joins together any pin/port reference passed to it.
+  # Pass it three references, and all three become the same signal, not three separate point-to-point wires.
+  # -net processing_system7_FCLK_CLK0 -> optional flag giving this net an explicit name, rather than letting Vivado auto-generate one.
+  # shows up labeling the wire in the GUI's schematic view, and if a net with that name already exists passing the same -net name extends that existing net to include the new endpoint (imagine in the GUI).
+  # [get_bd_pins processing_system7/FCLK_CLK0] -> 
+
+  ####################################
+
 
 
   # Create interface connections
