@@ -33,8 +33,15 @@ module red_pitaya_top #()
   inout  logic          DDR_odt    ,
   inout  logic          DDR_ras_n  ,
   inout  logic          DDR_reset_n,
-  inout  logic          DDR_we_n
+  inout  logic          DDR_we_n,
+  output logic [8-1:0]  led_o          // matches led_o[*] in red_pitaya.xdc
 );
+
+
+
+logic fclk_clk0;
+
+
 
 system system_i
 (
@@ -60,7 +67,12 @@ system system_i
   .DDR_odt           (DDR_odt          ),
   .DDR_ras_n         (DDR_ras_n        ),
   .DDR_reset_n       (DDR_reset_n      ),
-  .DDR_we_n          (DDR_we_n         )
+  .DDR_we_n          (DDR_we_n         ),
+  .FCLK_CLK0         (fclk_clk0        )
 );
+
+led_blink led_blink_i ( .clk(fclk_clk0), .led_o(led_o[0]) );
+
+assign led_o[7:1] = 7'b0;   // unused LEDs, driven low
 
 endmodule: red_pitaya_top
