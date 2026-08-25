@@ -269,7 +269,18 @@ proc create_root_design { parentCell } {
   # Pass it three references, and all three become the same signal, not three separate point-to-point wires.
   # -net processing_system7_FCLK_CLK0 -> optional flag giving this net an explicit name, rather than letting Vivado auto-generate one.
   # shows up labeling the wire in the GUI's schematic view, and if a net with that name already exists passing the same -net name extends that existing net to include the new endpoint (imagine in the GUI).
-  # [get_bd_pins processing_system7/FCLK_CLK0] -> 
+  # [get_bd_pins processing_system7/FCLK_CLK0] -> a query, find the pin named FCLK_CLK0 on the cell named processing_system7.
+  # This is the actual source of the clock signal — a pin on an instantiated IP block inside the design.
+  # Rmk: -> A cell is just Vivado's term for one instantiated IP block inside a block design — the schematic-diagram equivalent of a module instance in your RTL
+  #      -> When you drag the Zynq PS7 IP onto the canvas, that instance becomes a cell named processing_system7
+  #      -> When you drag in a "Processor System Reset" IP, that instance becomes a cell named proc_sys_reset_0.
+  #      -> get_bd_pins <cell>/<pin> is how you address "this specific pin, on this specific instance" — exactly like dut.led_blink_i.counter would address a signal inside a specific instance in a simulation waveform
+  #      -> "Slowest sync clk" reads as "the (slowest) clock to synchronize to" — a clock you'd feed into a synchronizer, not one it would produce. Thus is an input port
+  # [get_bd_pins proc_sys_reset_0/slowest_sync_clk] -> reset generator's clock input.
+  # [get_bd_ports FCLK_CLK0] -> a reference to the new external port just created. 
+  # "pins" live on cells/IP instances inside the block design , while "ports" are on the block design's own outer boundary (what becomes visible to whatever instantiates system from outside, i.e. red_pitaya_top.sv)
+  # 
+  # "connect the PS7's actual FCLK_CLK0 output pin, the reset generator's existing clock input pin, and the new external port you just created, all together as one single wire."
 
   ####################################
 
