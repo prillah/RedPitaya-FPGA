@@ -221,7 +221,8 @@ proc create_root_design { parentCell } {
 
   ####################################
 
-  set FCLK_CLK0 [ create_bd_port -dir O -type clk -freq_hz 125000000 FCLK_CLK0 ]
+  # set FCLK_CLK0 [ create_bd_port -dir O -type clk -freq_hz 125000000 FCLK_CLK0 ]
+  set FCLK_CLK0 [ create_bd_port -dir O -type clk FCLK_CLK0 ]
 
   # set FCLK_CLK0 [ ... ] -> [] are the return value, so set FCLK.. to whatever gets returned
   # create_bd_port -> creates new ordinary (not bundled) external  port on the currently active block design.
