@@ -298,8 +298,8 @@ proc create_root_design { parentCell } {
   [get_bd_pins processing_system7/M_AXI_GP1_ACLK] \
   [get_bd_pins proc_sys_reset_3/slowest_sync_clk]
 
-  connect_bd_net -net processing_system7_FCLK_CLK0  [get_bd_pins processing_system7/FCLK_CLK0] \
-  [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
+  # connect_bd_net -net processing_system7_FCLK_CLK0  [get_bd_pins processing_system7/FCLK_CLK0] \
+  # [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
 
   connect_bd_net -net processing_system7_FCLK_CLK1  [get_bd_pins processing_system7/FCLK_CLK1] \
   [get_bd_pins proc_sys_reset_2/slowest_sync_clk]
