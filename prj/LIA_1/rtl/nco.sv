@@ -18,8 +18,10 @@ module cordic_sincos #(
     output logic signed [OUT_WIDTH-1:0] cos_o
 );
 
-    localparam int ANGLE_WIDTH = PHASE_WIDTH - 2;
-    localparam int WORK_WIDTH  = OUT_WIDTH + GUARD_BITS;
+    localparam int ANGLE_WIDTH = PHASE_WIDTH - 2;       // because two bits for quadrant
+    localparam int WORK_WIDTH  = OUT_WIDTH + GUARD_BITS;    // how wide x,y,z adders and so on need to be (internal precision)
+
+    
 
 
 
