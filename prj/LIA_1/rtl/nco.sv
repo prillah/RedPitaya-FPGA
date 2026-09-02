@@ -21,7 +21,11 @@ module cordic_sincos #(
     localparam int ANGLE_WIDTH = PHASE_WIDTH - 2;       // because two bits for quadrant
     localparam int WORK_WIDTH  = OUT_WIDTH + GUARD_BITS;    // how wide x,y,z adders and so on need to be (internal precision)
 
-    blabla
+    // X0 = (K * (2**(WORK_WIDTH-1)-1)), K = prod(cos(atan(2^-i))) for i=0,...,15.
+    // - computed by scripts/gen_cordic_constants.py for chosen N_STAGES.
+    // Done to gain-precorrect so no output multiplier is needed after the pipeline.
+    localparam signed [WORK_WIDTH-1:0] X0 = 18'sd79593;  // N_STAGES=16, OUT_WIDTH=14, GUARD_BITS=4
+
 
 
 
