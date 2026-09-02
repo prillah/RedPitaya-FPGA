@@ -1,4 +1,10 @@
 import numpy as np
+from pathlib import Path
+
+script_dir = Path(__file__).resolve().parent
+output_path = script_dir.parent / "rtl" / "atan_table.mem"
+
+output_path.parent.mkdir(parents=True, exist_ok=True)
 
 N_STAGES    = 16
 PHASE_WIDTH = 32
@@ -12,7 +18,7 @@ WORK_WIDTH  = OUT_WIDTH + GUARD_BITS
 atan_vals = np.arctan(2.0 ** -np.arange(N_STAGES))
 atan_scaled = np.round(atan_vals / (np.pi / 2) * (2 ** ANGLE_WIDTH)).astype(int)
 
-with open("atan_table.mem", "w") as f:
+with open(output_path, "w") as f:
     for v in atan_scaled:
         f.write(f"{v & (2**(ANGLE_WIDTH+1) - 1):0{(ANGLE_WIDTH+1+3)//4}x}\n")
         # v & (2**(ANGLE_WIDTH+1) - 1) -> bitwise AND with 0000111...1 with Angle_width+1 many 1s to make the python integer v fixed widt (angle +1)
