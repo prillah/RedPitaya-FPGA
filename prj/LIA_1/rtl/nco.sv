@@ -21,7 +21,7 @@ module cordic_sincos #(
     localparam int ANGLE_WIDTH = PHASE_WIDTH - 2;       // because two bits for quadrant
     localparam int WORK_WIDTH  = OUT_WIDTH + GUARD_BITS;    // how wide x,y,z adders and so on need to be (internal precision)
 
-    
+    blabla
 
 
 
