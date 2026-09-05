@@ -32,6 +32,21 @@ module cordic_sincos #(
     // $readmemh -> built-in verilog "system task" ($ marks built in utility). reads text file with each line being a hexadecimal number
     //           -> loads them sequentially into the array specified as atan_lut, starting at index 0
 
+    logic [1:0] quadrant;   // two bits to encode the quadrant of the angle
+    logic [ANGLE_WIDTH-1:0] subangle;   // angle between 0 and pi/2, i.e. top right quadrant
+    assign quadrant = phase[PHASE_WIDTH-1 -: 2];    // syntax: signal[start_bit -: width] -> go down wdth number of bits startng from start_bit ( +: would signal upwards)
+    assign subangle = phase[ANGLE_WIDTH-1:0];       // 30 bits for subangle implies z has 31 bits because need to add a sign bit
+
+    // initialize pipeline register arrays for each of the N CORDIC stages (index 0 = initial condition)
+    logic signed [WORK_WIDTH-1:0] x [0:N_STAGES];
+    logic signed [WORK_WIDTH-1:0] y [0:N_STAGES];
+    logic signed [ANGLE_WIDTH:0]  z [0:N_STAGES];
+    logic [1:0] quad_pipe [0:N_STAGES];
+
+
+
+
+
 
 
 
