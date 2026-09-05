@@ -44,6 +44,14 @@ module cordic_sincos #(
     logic signed [ANGLE_WIDTH:0]  z [0:N_STAGES];
     logic [1:0] quad_pipe [0:N_STAGES];     // book-keeping which quadrant we started in for final step after N CORDIC stages
 
+    // stage number 0, the initialization step of the CORDIC
+    always_ff @(posedge clk) begin
+        x[0] <= X0;     // Initial scaled value accounting for CORDIC gain and size of x (done in gen_cordic_constants.py)
+        y[0] <= '0;     // Initialize as 0 to get just sine value
+        z[0] <= {1'b0, subangle};   // subangle is always >= 0, safely in range and concatenate with 1'b0 to make it a positive signed integer
+        quad_pipe[0] <= quadrant;   // save initial quadrant of angle to recover later on
+    end
+
     
 
 
