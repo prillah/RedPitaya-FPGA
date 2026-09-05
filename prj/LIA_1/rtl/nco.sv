@@ -37,11 +37,14 @@ module cordic_sincos #(
     assign quadrant = phase[PHASE_WIDTH-1 -: 2];    // syntax: signal[start_bit -: width] -> go down wdth number of bits startng from start_bit ( +: would signal upwards)
     assign subangle = phase[ANGLE_WIDTH-1:0];       // 30 bits for subangle implies z has 31 bits because need to add a sign bit
 
-    // initialize pipeline register arrays for each of the N CORDIC stages (index 0 = initial condition)
+    // initialize pipeline register arrays for each of the N CORDIC stages (index 0 = initial condition) 
+    // gives structure of the bit-parallel unrolled CORDIC algorithm
     logic signed [WORK_WIDTH-1:0] x [0:N_STAGES];
     logic signed [WORK_WIDTH-1:0] y [0:N_STAGES];
     logic signed [ANGLE_WIDTH:0]  z [0:N_STAGES];
-    logic [1:0] quad_pipe [0:N_STAGES];
+    logic [1:0] quad_pipe [0:N_STAGES];     // book-keeping which quadrant we started in for final step after N CORDIC stages
+
+    
 
 
 
