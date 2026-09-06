@@ -132,6 +132,9 @@ async def measure_sfdr_and_noise_floor(dut, n_cycles: int, n_samples: int = 1024
 
     spectrum = np.abs(np.fft.fft(samples))
     spectrum_db = 20 * np.log10(spectrum / spectrum[n_cycles] + 1e-12)
+    # normalize the spectrum relative to the fundamental tone spectrum[n_cycles]. Expressed as fraction of fundamental Amplitude
+    #       -> Thus is dBc (decibels relative to carrier!)
+    #
     # In an N-point FFT, the k-th bin corresponds to a freq component completing exactly k full cycles over the N-sample window.
     # ftw chosen as integer ftw = n_cycles * 2^PHASE_WIDTH // n_samples such that it completes n_cycles of full periods within the n_samples window!
     #
@@ -140,6 +143,11 @@ async def measure_sfdr_and_noise_floor(dut, n_cycles: int, n_samples: int = 1024
     # +1e-12 is purely to avoid log(0) which is -inf! if bin is truly zero then get -240dB, not to worry about.
 
     
+
+
+
+
+
 
 
 
