@@ -3,8 +3,14 @@
 // Unrolled, Pipelined CORDIC (rotation mode). latency is N_STAGES
 // and throughput is 1 sample/clock once filled.
 //
-// Phase input convention: top 2 bits select the quadrant, 
-// the remaining bits represent the sub angle within quadrant
+// Range reduction using a single-bit +-180deg pre-rotation (splitting 360 domain into two 180 domains)
+// Based on Andraka's CORDIC survey, Sec. 3 example 2. This lies perfectly in (~+-99.7 deg), which is CORDICs natural convergence range.
+// No need for rotating back at the end, can just rotate initial vector too ([x0,y0] -> [-x0,-y0])!
+//
+// Interpreting phase as signed integer maps the original [0,2pi] range onto [-pi,pi], just as wanted for CORDIC.ANGLE_WIDTH
+// z is then the top working_width bits startin after the signed bit of phase
+// The top two bits of phase give the indication of one is in the left or right half circle, i.e. if pre rotation is needed.ANGLE_WIDTH
+// Like this we need no radian conversion in the hardware.ANGLE_WIDTH
  
 module cordic_sincos #(
     parameter int PHASE_WIDTH = 32,   // width of phase accumul., sets freq. resolution
@@ -18,7 +24,6 @@ module cordic_sincos #(
     output logic signed [OUT_WIDTH-1:0] cos_o
 );
 
-    localparam int ANGLE_WIDTH = PHASE_WIDTH - 2;       // because two bits for quadrant
     localparam int WORK_WIDTH  = OUT_WIDTH + GUARD_BITS;    // how wide x,y,z adders and so on need to be (internal precision)
 
     // X0 = (K * (2**(WORK_WIDTH-1)-1)), K = prod(cos(atan(2^-i))) for i=0,...,15.
@@ -26,16 +31,16 @@ module cordic_sincos #(
     // Done to gain-precorrect so no output multiplier is needed after the pipeline.
     localparam signed [WORK_WIDTH-1:0] X0 = 18'sd79593;  // N_STAGES=16, OUT_WIDTH=14, GUARD_BITS=4
 
-    logic signed [ANGLE_WIDTH:0] atan_lut [0:N_STAGES-1];   // declaring memory array: logic signed [packed dimension, i.e. width of one element]   atan_lut   [unpacked dimension, i.e. how many elements, atan_lut[i]]
+    logic signed [WORK_WIDTH-1:0] atan_lut [0:N_STAGES-1];   // declaring memory array: logic signed [packed dimension, i.e. width of one element]   atan_lut   [unpacked dimension, i.e. how many elements, atan_lut[i]]
     initial $readmemh("atan_table.mem", atan_lut);
     // initial -> block that runs exactly once, at the very start of time, not every clock edge
     // $readmemh -> built-in verilog "system task" ($ marks built in utility). reads text file with each line being a hexadecimal number
     //           -> loads them sequentially into the array specified as atan_lut, starting at index 0
 
-    logic [1:0] quadrant;   // two bits to encode the quadrant of the angle
-    logic [ANGLE_WIDTH-1:0] subangle;   // angle between 0 and pi/2, i.e. top right quadrant
-    assign quadrant = phase[PHASE_WIDTH-1 -: 2];    // syntax: signal[start_bit -: width] -> go down wdth number of bits startng from start_bit ( +: would signal upwards)
-    assign subangle = phase[ANGLE_WIDTH-1:0];       // 30 bits for subangle implies z has 31 bits because need to add a sign bit
+    // If top two bits of the phase are equal (00 or 11) then angle is already in [-pi/2, pi/2] range.
+    // If they differ then need to prerotate -> is exactly XOR gate.
+    logic need_prerotate;
+    assign need_prerotate = phase[PHASE_WIDTH-1] ^ phase[PHASE_WIDTH-2];    // XOR of top two bits
 
     // initialize pipeline register arrays for each of the N CORDIC stages (index 0 = initial condition) 
     // gives structure of the bit-parallel unrolled CORDIC algorithm
@@ -43,16 +48,39 @@ module cordic_sincos #(
     logic signed [WORK_WIDTH-1:0] y [0:N_STAGES];
     logic signed [ANGLE_WIDTH:0]  z [0:N_STAGES];
     logic [1:0] quad_pipe [0:N_STAGES];     // book-keeping which quadrant we started in for final step after N CORDIC stages
+                                            // this is needed in pipeline design because read new phase value every clk cycle but only
+                                            // need the quadrant value for correction 17 cycles later! 
+                                            // TODO: Check in VIVADO if implemented as efficient shift-register primitive
 
     // stage number 0, the initialization step of the CORDIC
     always_ff @(posedge clk) begin
         x[0] <= X0;     // Initial scaled value accounting for CORDIC gain and size of x (done in gen_cordic_constants.py)
-        y[0] <= '0;     // Initialize as 0 to get just sine value
+        y[0] <= '0;     // Initialize as 0 to get just sine value ('0 is SystemVerilog unsized literal, meaning "the value zero, sized to match whatever context it's used in")
         z[0] <= {1'b0, subangle};   // subangle is always >= 0, safely in range and concatenate with 1'b0 to make it a positive signed integer
         quad_pipe[0] <= quadrant;   // save initial quadrant of angle to recover later on
     end
 
-    
+
+    genvar i;   // variable only existing for compile-time book-keeping. After VIVADO built circuit there is no variable i and no for loop
+    generate    // for procedurally creating hardware blocks, done at compile time (for loops run at runtime inside a always_ff or intital block!)
+        for (i=0; i<N_STAGES; i++) begin : cordic_stage // creates a named hierarchical scope, a single stage can be addressed by cordic_stage [0] e.g. in GTKWave or VIVADO!
+            always_ff @(posedge clk) begin
+                if (z[i] >= 0) begin
+                    x[i+1] <= x[i] - (y[i] >>> i);  // division by 2^n is right bit shift by n bits
+                    y[i+1] <= y[i] + (x[i] >>> i);
+                    z[i+1] <= z[i] - atan_lut[i];
+                end else begin
+                    x[i+1] <= x[i] + (y[i] >>> i);  // flip sign
+                    y[i+1] <= y[i] - (x[i] >>> i);
+                    z[i+1] <= z[i] + atan_lut[i];
+                end
+                quad_pipe[i+1] <= quad_pipe[i]; // shift quadrant register by one stage 
+            end
+        end
+    endgenerate
+
+
+
 
 
 

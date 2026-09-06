@@ -16,6 +16,7 @@ WORK_WIDTH  = OUT_WIDTH + GUARD_BITS
 # Calc of atan LUT: arctan(2^-i) table, in "quadrant units" with 2**ANGLE_WIDTH == pi/2
 # These units are needed for hardware to stay entirely in integer phase units
 atan_vals = np.arctan(2.0 ** -np.arange(N_STAGES))
+# print(atan_vals)
 atan_scaled = np.round(atan_vals / (np.pi / 2) * (2 ** ANGLE_WIDTH)).astype(int)
 
 with open(output_path, "w") as f:
