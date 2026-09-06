@@ -66,8 +66,35 @@ async def test_reset(dut):
 @cocotb.text()
 async def test_static_angles(dut):
     """
-    
+    Feed the CORDIC module specific angles and check for its precision.
+    Specifically check +90/-90 degree collision points and some others as well as 0.
     """
+
+    # Initialize and start clk
+    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
+    dut.reset.value = 0
+    dut.phase.value = 0
+    for _ in range(LATENCY):
+        await RisingEdge(dut.clk)
+
+    test_angles = [0.0, 45.0, 89.9, 90.0, 90.1, 135.0, 179.9, 200.0,
+                   269.9, 270.0, 315.0, -30.0, -89.9, -90.0, -90.1, -135.0]
+
+    tolerance = 2.0 / FULL_SCALE  # ~1 LSB (from final truncation rounding error) plus CORDIC approximation error due to finite number of stages, i.e. accecpt error of +-2 of full integer value
+
+    for theta in test_angles:
+        cos_meas, sin_meas = await drive_and_read(dut, theta)   # need to use await with coroutines! Wait until task finished without blocking underlying simulator!
+        cos_exp = np.cos(np.radians(theta))
+        sin_exp = np.sin(np.radians(theta))
+
+        assert abs(cos_meas - cos_exp) < tolerance, (
+            f"cos({theta}) mismatch: got {cos_meas:.5f}, expected {cos_exp:.5f}")
+        assert abs(sin_meas - sin_exp) < tolerance, (
+            f"sin({theta}) mismatch: got {sin_meas:.5f}, expected {sin_exp:.5f}")
+
+    dut._log.info("All static angle checks passed.")
+
+
 
 
 
