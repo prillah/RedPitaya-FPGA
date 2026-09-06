@@ -96,6 +96,29 @@ async def test_static_angles(dut):
 
 
 
+async def measure_sfdr_and_noise_floor(dut, n_cycles: int, n_samples: int = 1024):
+    """
+    Drive a sample tone coherently, i.e. the cycles completed per sample window is a whole integer!
+    Needed since FFT assumes signal perfectly repeats itself, so would get sharp features otherwise leading to broad features in
+    FFT space (spectral leaking).
+    n_samples: How many output samples do we capture (chosen as 1024 a power of 2 helping the FFT efficiency)
+               -> n_samples must evenly divide 2^PHASE_WIDTH, such that ftw = n_cycles * 2^PHASE_WIDTH // n_samples
+                  comes out exact, with zero rounding remainder guaranteeing coherent sampling.
+    n_cycles: how many periods of the test tone fit inside n_sample-window.Test frequency will be: f_test = (n_cycles / n_samples) × f_clk!!!
+              -> n_samples/2 tests close to Nyquist. But n_samples should not be simple multiple of n_cycles to not include some artificial periodicities from somewhere else.
+              -> Choose ideally as something like a prime number
+    """ 
+
+    assert 2**PHASE_WIDTH % n_samples == 0, "n_samples must divide 2**PHASE_WIDTH exactly"
+    ftw = n_cycles * 2**PHASE_WIDTH // n_samples  # fix tuning word like this such that get an exact integer, no rounding error
+
+
+    phase_acc = 0   # initialize phase accum. for generating the signal later
+    dut.phase.value = phase_acc # set initial angle value as 0
+    for _ in range(LATENCY):    # let this initial value propagate through CORDIC stages
+        await RisingEdge(dut.clk)
+
+    
 
 
 
