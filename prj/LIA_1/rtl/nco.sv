@@ -48,7 +48,7 @@ module cordic_sincos #(
     logic signed [WORK_WIDTH-1:0] y [0:N_STAGES];
     logic signed [WORK_WIDTH-1:0] z [0:N_STAGES];
     
-    // stage number 0, the initialization step of the CORDIC
+    // stage number 0, the initialization step of the CORDIC -> TODO: Find out if could save 1 clock cycle of latency by making this an always_comb block?
     always_ff @(posedge clk) begin
         x[0] <= need_prerotate ? -X0 : X0;    // Initial scaled value accounting for CORDIC gain and size of x (done in gen_cordic_constants.py). If prerotation is needed, flip sign of initial vector -> then no need to rotate back later.
         y[0] <= '0;     // Initialize as 0 to get just sine value ('0 is SystemVerilog unsized literal, meaning "the value zero, sized to match whatever context it's used in")
@@ -69,33 +69,17 @@ module cordic_sincos #(
                     y[i+1] <= y[i] - (x[i] >>> i);
                     z[i+1] <= z[i] + atan_lut[i];
                 end
-                quad_pipe[i+1] <= quad_pipe[i]; // shift quadrant register by one stage 
             end
         end
     endgenerate
 
+    // final stage, assign the outputs -> just truncation for DAC/ADC width (no rotation or so needed)
+    always_comb begin
+        cos_o = x[N_STAGES][WORK_WIDTH-1 -: OUT_WIDTH];
+        sin_o = y[N_STAGES][WORK_WIDTH-1 -: OUT_WIDTH];
+    end
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+endmodule
 
 
 
