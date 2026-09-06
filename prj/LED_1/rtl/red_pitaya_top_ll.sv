@@ -9,7 +9,7 @@
 /*
 Top module for a barebones project.
 */
-module red_pitaya_top #()
+module red_pitaya_top_ll #()
 (
   // PS connections
   inout  logic [54-1:0] FIXED_IO_mio     ,
@@ -36,7 +36,7 @@ module red_pitaya_top #()
   inout  logic          DDR_we_n
 );
 
-system system_i
+system system_i 
 (
   // MIO
   .FIXED_IO_mio      (FIXED_IO_mio     ),
@@ -63,4 +63,4 @@ system system_i
   .DDR_we_n          (DDR_we_n         )
 );
 
-endmodule: red_pitaya_top
+endmodule: red_pitaya_top_ll
