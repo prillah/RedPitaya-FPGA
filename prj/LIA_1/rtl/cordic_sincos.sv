@@ -11,6 +11,8 @@
 // z is then the top working_width bits startin after the signed bit of phase
 // The top two bits of phase give the indication of one is in the left or right half circle, i.e. if pre rotation is needed.ANGLE_WIDTH
 // Like this we need no radian conversion in the hardware.ANGLE_WIDTH
+//
+// Synchr. reset celaring stage 0 only -> self flushes rest since each stage only dependent on previous one
  
 module cordic_sincos #(
     parameter int PHASE_WIDTH = 32,   // width of phase accumul., sets freq. resolution
@@ -19,6 +21,7 @@ module cordic_sincos #(
     parameter int GUARD_BITS  = 4     // extra internal precision due to accumulating rounding errors (approx. log_2(N_stages))
 )(
     input  logic clk,
+    input  logic reset,               // synchronous and active-high
     input  logic [PHASE_WIDTH-1:0] phase,
     output logic signed [OUT_WIDTH-1:0] sin_o,
     output logic signed [OUT_WIDTH-1:0] cos_o
@@ -50,11 +53,16 @@ module cordic_sincos #(
     
     // stage number 0, the initialization step of the CORDIC -> TODO: Find out if could save 1 clock cycle of latency by making this an always_comb block?
     always_ff @(posedge clk) begin
-        x[0] <= need_prerotate ? -X0 : X0;    // Initial scaled value accounting for CORDIC gain and size of x (done in gen_cordic_constants.py). If prerotation is needed, flip sign of initial vector -> then no need to rotate back later.
-        y[0] <= '0;     // Initialize as 0 to get just sine value ('0 is SystemVerilog unsized literal, meaning "the value zero, sized to match whatever context it's used in")
-        z[0] <= phase[PHASE_WIDTH-2 -: WORK_WIDTH];   // interpreting phase as signe -> range [-pi,pi] -> dropping sign bit of phase -> range [-pi/2,pi/2], exactly what is needed for CORDIC!
+        if (reset) begin
+            x[0] <= '0;
+            y[0] <= '0;
+            z[0] <= '0;
+        end else begin
+            x[0] <= need_prerotate ? -X0 : X0;  // Initial scaled value accounting for CORDIC gain and size of x (done in gen_cordic_constants.py). If prerotation is needed, flip sign of initial vector -> then no need to rotate back later.
+            y[0] <= '0; // Initialize as 0 to get just sine value ('0 is SystemVerilog unsized literal, meaning "the value zero, sized to match whatever context it's used in")
+            z[0] <= phase[PHASE_WIDTH-2 -: WORK_WIDTH]; // interpreting phase as signe -> range [-pi,pi] -> dropping sign bit of phase -> range [-pi/2,pi/2], exactly what is needed for CORDIC!
+        end
     end
-
 
     genvar i;   // variable only existing for compile-time book-keeping. After VIVADO built circuit there is no variable i and no for loop
     generate    // for procedurally creating hardware blocks, done at compile time (for loops run at runtime inside a always_ff or intital block!)
