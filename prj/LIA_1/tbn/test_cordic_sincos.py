@@ -20,6 +20,10 @@ def deg_to_phase(theta_deg: float) -> int:  # function arg is a float that repre
             # -> think dividing range into even pieces and since have 2**32 states need to divide by 2**32!!!
             # % 2**PHASE_WIDTH ensures that like in digital system the phase overflows to 0 after largest number!
 
+async def reset_dut(dut):   # coroutine to reset the DUT in every test
+    dut.reset.value = 1
+    await RisingEdge(dut.clk)
+    dut.reset.value = 0
 
 async def drive_and_read(dut, theta_deg: float):
     """Drives one phase value, waits out the pipeline latency and then reads the result.
@@ -51,9 +55,7 @@ async def test_reset(dut):
         "Error: stage 0 didn't actually load data properly!"
     )
 
-    dut.reset.value = 1
-    await RisingEdge(dut.clk)
-    dut.reset.value = 0
+    await reset_dut(dut)
 
     assert dut.x[0].value.signed_integer == 0, "x[0] did not clear on reset"
     assert dut.y[0].value.signed_integer == 0, "y[0] did not clear on reset"
@@ -72,10 +74,7 @@ async def test_static_angles(dut):
 
     # Initialize and start clk
     cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
-    dut.reset.value = 0
-    dut.phase.value = 0
-    for _ in range(LATENCY):
-        await RisingEdge(dut.clk)
+    await reset_dut(dut)
 
     test_angles = [0.0, 45.0, 89.9, 90.0, 90.1, 135.0, 179.9, 200.0,
                    269.9, 270.0, 315.0, -30.0, -89.9, -90.0, -90.1, -135.0]
@@ -112,13 +111,27 @@ async def measure_sfdr_and_noise_floor(dut, n_cycles: int, n_samples: int = 1024
     assert 2**PHASE_WIDTH % n_samples == 0, "n_samples must divide 2**PHASE_WIDTH exactly"
     ftw = n_cycles * 2**PHASE_WIDTH // n_samples  # fix tuning word like this such that get an exact integer, no rounding error
 
+    await reset_dut(dut)
 
     phase_acc = 0   # initialize phase accum. for generating the signal later
-    dut.phase.value = phase_acc # set initial angle value as 0
-    for _ in range(LATENCY):    # let this initial value propagate through CORDIC stages
+
+    samples = np.empty(n_samples, dtype=np.int64)
+
+    # Prime pipeline with LATENCY cycles of the same ramp before sampling anything. (not recorded) Needed to get smooth oscillation.
+    for _ in range(LATENCY):
+        phase_acc = (phase_acc + ftw) % 2**PHASE_WIDTH
+        dut.phase.value = phase_acc
         await RisingEdge(dut.clk)
 
-    
+    # now start recording
+    for k in range(n_samples):
+        phase_acc = (phase_acc + ftw) % 2**PHASE_WIDTH
+        dut.phase.value = phase_acc
+        await RisingEdge(dut.clk)
+        samples[k] = dut.sin_o.value.signed_integer
+
+    spectrum = np.abs(np.fft.fft(samples))
+    spectrum_db = 20 * np.log10(spectrum / spectrum[n_cycles] + 1e-12)
 
 
 
