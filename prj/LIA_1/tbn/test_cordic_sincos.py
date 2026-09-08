@@ -12,7 +12,10 @@ LATENCY     = N_STAGES + 1  # cycles needed from phase input to valid output
 
 FULL_SCALE = 2 ** (OUT_WIDTH - 1) - 1   # needed to scale output back to [-1,1] range -> divide by largest twos complement number
 
-
+# Frequencies called by test_spectral_purity, as (label and n_cycles) pairs out of N_SAMPLES total. 
+# Span low, mid, and near-Nyquist.
+N_SAMPLES = 1024
+TEST_POINTS = {"low": 7, "mid": 251, "near_nyquist": 499}
 
 def deg_to_phase(theta_deg: float) -> int:  # function arg is a float that represents an angle in degrees. Output is a whole integer value
     return round(theta_deg / 360.0 * 2**PHASE_WIDTH) % 2**PHASE_WIDTH   # theta_deg / 360.0 gives us fraction of whole circle.
@@ -131,6 +134,7 @@ async def measure_sfdr_and_noise_floor(dut, n_cycles: int, n_samples: int = 1024
         samples[k] = dut.sin_o.value.signed_integer
 
     spectrum = np.abs(np.fft.fft(samples))
+    print(spectrum)
     spectrum_db = 20 * np.log10(spectrum / spectrum[n_cycles] + 1e-12)
     # normalize the spectrum relative to the fundamental tone spectrum[n_cycles]. Expressed as fraction of fundamental Amplitude
     #       -> Thus is dBc (decibels relative to carrier!)
@@ -141,7 +145,56 @@ async def measure_sfdr_and_noise_floor(dut, n_cycles: int, n_samples: int = 1024
     # 20*log10 and not 10*log10 since want dB definition for amplitudes and not powers 10*log10(A**2)=20*log(A)
     #
     # +1e-12 is purely to avoid log(0) which is -inf! if bin is truly zero then get -240dB, not to worry about.
+    #
+    # FFT for real values (our output are integers) the spectrum is conjugate symmetric (|X[k]| = |X[n_samples-k]|)
+    # Positive and negative frequency samples can not be distinguished.
+    # Bin 0 is DC (the average value); bins 1 through n_samples/2 - 1 represent positive frequencies ascending
+    # ; bins n_samples/2 + 1 through n_samples - 1 are just mirror copies of those same frequencies, carrying no new information.
 
+
+
+    # Exclude DC (bin/item 0) the fundamental(n_cycles) and its real FFT mirror (n_samples - n_cycles), 
+    # Include one guard bin to each side when searching for the spurs or the noise flooe
+    exclude = set() # set does deduplicate, important since n_cycles could be small such that gurad bin collides with DC)
+    for center in (0, n_cycles, n_samples - n_cycles):
+        exclude.update({(center + d) % n_samples for d in (-1, 0, 1)})  # %n to wrap around and not step out of bounds
+
+    other_bins = [b for b in range(n_samples // 2) if b not in exclude] # skip redundant part of the spectrum
+
+    db_values = [spectrum_db[b] for b in other_bins]
+    worst_idx = int(np.argmax(db_values))
+
+    sfdr_db = -db_values[worst_idx] # since all values relative to max (dBc) just look for max value
+    noise_floor_dbc = np.mean(db_values[:worst_idx] + db_values[worst_idx + 1:])    # Exlude the spurious signal when looking at the noise floor
+
+    return sfdr_db, noise_floor_dbc
+
+
+
+@cocotb.test()
+async def test_spectral_purity(dut):
+    """
+    Check a few frequencies and calculate sfdr and noise floor for them using above function.
+    Test points are low medium and near Nyquist (n_samples/2)
+    
+    """
+
+    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
+
+    results = {}
+    for label, n_cycles in TEST_POINTS.items():
+        sfdr_db, noise_floor_dbc = await measure_sfdr_and_noise_floor(
+            dut, n_cycles, N_SAMPLES)
+        results[label] = (sfdr_db, noise_floor_dbc)
+        dut._log.info(
+            f"{label:>13} (f={n_cycles}/{N_SAMPLES} * fclk): "
+            f"SFDR = {sfdr_db:.1f} dBc, noise floor = {noise_floor_dbc:.1f} dBc")
+
+    for label, (sfdr_db, _) in results.items():
+        assert sfdr_db > 60.0, f"{label}: SFDR unexpectedly poor ({sfdr_db:.1f} dBc)"   
+        # -6.02 × N_STAGES ≈ -96 dBc is the worst case, so should be not above 60
+        # 20×log10​(1/2)≈−6.02 dB, so adding a bit halves the error!
+        # And CORDIC adds one bit of precision per stage
     
 
 
