@@ -1,6 +1,7 @@
+# /tbn/test_cordic_sincos.py
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge
+from cocotb.triggers import RisingEdge, Timer
 import numpy as np
 
 
@@ -26,6 +27,7 @@ def deg_to_phase(theta_deg: float) -> int:  # function arg is a float that repre
 async def reset_dut(dut):   # coroutine to reset the DUT in every test
     dut.reset.value = 1
     await RisingEdge(dut.clk)
+    await Timer(1, unit="ns")
     dut.reset.value = 0
 
 async def drive_and_read(dut, theta_deg: float):
@@ -35,6 +37,7 @@ async def drive_and_read(dut, theta_deg: float):
     dut.phase.value = deg_to_phase(theta_deg)   # syntax for adressing the phase input value!
     for _ in range(LATENCY):                    # let system run
         await RisingEdge(dut.clk)
+    await Timer(1, unit="ns")
     cos_raw = dut.cos_o.value.signed_integer    # interpret value as signed integer in python. In cocotb return type of dut.q.value is LogicArray or BinaryArray and not binary number/integer.
     sin_raw = dut.sin_o.value.signed_integer
     return cos_raw / FULL_SCALE, sin_raw / FULL_SCALE   # rescale into [-1,+1] range
@@ -68,7 +71,7 @@ async def test_reset(dut):
 
 
 
-@cocotb.text()
+@cocotb.test()
 async def test_static_angles(dut):
     """
     Feed the CORDIC module specific angles and check for its precision.

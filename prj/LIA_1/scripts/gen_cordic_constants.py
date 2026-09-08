@@ -22,9 +22,17 @@ atan_scaled = np.round(atan_vals / (np.pi / 2) * (2 ** (WORK_WIDTH - 1))).astype
 # -> Can also see this since pi/2 and -pi/2 are given by 10...0 and thus are the smallest negative number in twos complement (i.e. -2^(WORK_WIDTH-1))
 #    So scale to that, then our range is [-pi/2,pi/2)!
 
-with open(output_path, "w") as f:
+with open("atan_table.mem", "w") as f:
     for v in atan_scaled:
-        f.write(f"{v & (2**WORK_WIDTH - 1):0{(WORK_WIDTH+3)//4}x}\n")
+            f.write(f"{v & (2**WORK_WIDTH - 1):0{(WORK_WIDTH+3)//4}x}\n")
+            # v & (2**WORK_WIDTH - 1) -> bitwise AND with 0000111...1 with WORK_WIDTH many 1s to make the python integer v fixed width (WORK_WIDTH)
+            #                            this is exactly the size of z in the CORDIC stages!
+            # :0{(WORK_WIDTH+3)//4}x  -> specifies Python's f-string format specification. x at the end makes it hexadecimal rather than default decimal.
+            # {(WORK_WIDTH+3)//4}x}   -> number of hex digits needed to represent WORK_WIDTH bits.    
+
+# with open(output_path, "w") as f:
+#     for v in atan_scaled:
+#         f.write(f"{v & (2**WORK_WIDTH - 1):0{(WORK_WIDTH+3)//4}x}\n")
         # v & (2**WORK_WIDTH - 1) -> bitwise AND with 0000111...1 with WORK_WIDTH many 1s to make the python integer v fixed width (WORK_WIDTH)
         #                            this is exactly the size of z in the CORDIC stages!
         # :0{(WORK_WIDTH+3)//4}x  -> specifies Python's f-string format specification. x at the end makes it hexadecimal rather than default decimal.
