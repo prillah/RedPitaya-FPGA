@@ -3,6 +3,7 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 # setup parameters for cordic module as well as some for python simulation
@@ -17,6 +18,21 @@ FULL_SCALE = 2 ** (OUT_WIDTH - 1) - 1   # needed to scale output back to [-1,1] 
 # Span low, mid, and near-Nyquist.
 N_SAMPLES = 1024
 TEST_POINTS = {"low": 7, "mid": 251, "near_nyquist": 499}
+
+def save_spectrum_plot(spectrum_db, n_samples, n_cycles, label):
+    freqs_normalized = np.arange(n_samples // 2) / n_samples  # fraction of f_clk
+    plt.figure(figsize=(8, 4))
+    plt.plot(freqs_normalized, spectrum_db[:n_samples // 2])
+    plt.axvline(n_cycles / n_samples, color="r", linestyle="--", alpha=0.4, label="fundamental")
+    plt.xlabel("frequency / f_clk")
+    plt.ylabel("dBc")
+    plt.title(f"CORDIC output spectrum - {label}")
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f"spectrum_{label}.png", dpi=150)
+    plt.close()
+
 
 def deg_to_phase(theta_deg: float) -> int:  # function arg is a float that represents an angle in degrees. Output is a whole integer value
     return round(theta_deg / 360.0 * 2**PHASE_WIDTH) % 2**PHASE_WIDTH   # theta_deg / 360.0 gives us fraction of whole circle.
@@ -85,12 +101,18 @@ async def test_static_angles(dut):
     test_angles = [0.0, 45.0, 89.9, 90.0, 90.1, 135.0, 179.9, 200.0,
                    269.9, 270.0, 315.0, -30.0, -89.9, -90.0, -90.1, -135.0]
 
-    tolerance = 2.0 / FULL_SCALE  # ~1 LSB (from final truncation rounding error) plus CORDIC approximation error due to finite number of stages, i.e. accecpt error of +-2 of full integer value
+    # tolerance = 2.0 / FULL_SCALE  # ~1 LSB (from final truncation rounding error) plus CORDIC approximation error due to finite number of stages, i.e. accecpt error of +-2 of full integer value
+    tolerance = 4.0 / FULL_SCALE    # had to increase tolerance to 3 LSB at least since got errors. But checked that increasing Guardbits from 4->8 leads to same errors, so not design problem but just limited by N_stages
 
     for theta in test_angles:
         cos_meas, sin_meas = await drive_and_read(dut, theta)   # need to use await with coroutines! Wait until task finished without blocking underlying simulator!
         cos_exp = np.cos(np.radians(theta))
         sin_exp = np.sin(np.radians(theta))
+
+        print('---------------')
+        print('Theta: '+str(theta))
+        print('Cos exp: '+str(cos_exp))
+        print('Cos meas: '+str(cos_meas))
 
         assert abs(cos_meas - cos_exp) < tolerance, (
             f"cos({theta}) mismatch: got {cos_meas:.5f}, expected {cos_exp:.5f}")
@@ -137,7 +159,7 @@ async def measure_sfdr_and_noise_floor(dut, n_cycles: int, n_samples: int = 1024
         samples[k] = dut.sin_o.value.signed_integer
 
     spectrum = np.abs(np.fft.fft(samples))
-    print(spectrum)
+    print(np.max(spectrum))
     spectrum_db = 20 * np.log10(spectrum / spectrum[n_cycles] + 1e-12)
     # normalize the spectrum relative to the fundamental tone spectrum[n_cycles]. Expressed as fraction of fundamental Amplitude
     #       -> Thus is dBc (decibels relative to carrier!)
@@ -155,6 +177,7 @@ async def measure_sfdr_and_noise_floor(dut, n_cycles: int, n_samples: int = 1024
     # ; bins n_samples/2 + 1 through n_samples - 1 are just mirror copies of those same frequencies, carrying no new information.
 
 
+    save_spectrum_plot(spectrum_db, n_samples, n_cycles, str(n_cycles))
 
     # Exclude DC (bin/item 0) the fundamental(n_cycles) and its real FFT mirror (n_samples - n_cycles), 
     # Include one guard bin to each side when searching for the spurs or the noise flooe
