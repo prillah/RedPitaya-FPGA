@@ -1,4 +1,4 @@
-# /tbn/test_dds_cordic.py
+# /tbn/test_dds_cordic_freq_accuracy.py
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
@@ -40,10 +40,10 @@ async def test_reset(dut):
 
 @cocotb.test()
 async def test_frequency_accuracy(dut):
-    """
-    Set specific ftw and then let dds run. Check the final FFT versus the expected frequency.
-    Since CORDIC own precision was already checked, just need to test if the frequency is right.
-    """
+    ##################
+    # Set specific ftw and then let dds run. Check the final FFT versus the expected frequency.
+    # Since CORDIC own precision was already checked, just need to test if the frequency is right.
+    ##################
 
     cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
     await reset_dut(dut)
@@ -70,9 +70,9 @@ async def test_frequency_accuracy(dut):
 
     dut._log.info(f"ftw={ftw} correctly produced a tone at bin {peak_bin}/{n_samples}.")
 
-@cocotb.test()
-
-
+"""@cocotb.test()
+async def test_frequency_resolution(dut):
+"""
 
 
 

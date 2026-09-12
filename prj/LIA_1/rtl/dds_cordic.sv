@@ -17,7 +17,7 @@ module dds_cordic #(
 
     logic [PHASE_WIDTH-1:0] phase_acc;
 
-    always_ff @(clk) begin
+    always_ff @(posedge clk) begin
 
         if (reset) begin
             phase_acc <= '0;
