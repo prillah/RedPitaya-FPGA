@@ -39,10 +39,39 @@ async def test_reset(dut):
     dut._log.info("phase_acc correctly cleared on reset")
 
 @cocotb.test()
-async def test_dds(dut):
+async def test_frequency_accuracy(dut):
     """
-    
+    Set specific ftw and then let dds run. Check the final FFT versus the expected frequency.
+    Since CORDIC own precision was already checked, just need to test if the frequency is right.
     """
+
+    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
+    await reset_dut(dut)
+
+    n_samples = 1024
+    n_cycles = 37  # coherent choice as in cordic test
+    ftw = n_cycles * 2**PHASE_WIDTH // n_samples
+    dut.ftw.value = ftw
+
+    # Let values propagate through the N stages of the CORDIC algo
+    for _ in range(LATENCY):
+        await RisingEdge(dut.clk)
+
+    samples = np.empty(n_samples, dtype=np.int64)
+    for k in range(n_samples):
+        await RisingEdge(dut.clk)
+        samples[k] = dut.sin_o.value.signed_integer
+
+
+    spectrum = np.abs(np.fft.fft(samples))
+    peak_bin = np.argmax(spectrum[1:n_samples // 2]) + 1    # need +1 because take spectrum starting from index 1 (new index 0)
+
+    assert peak_bin == n_cycles, (f"FFT peak at bin {peak_bin}, expected {n_cycles}")
+
+    dut._log.info(f"ftw={ftw} correctly produced a tone at bin {peak_bin}/{n_samples}.")
+
+@cocotb.test()
+
 
 
 
