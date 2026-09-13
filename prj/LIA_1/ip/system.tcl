@@ -217,23 +217,6 @@ proc create_root_design { parentCell } {
    CONFIG.ASSOCIATED_BUSIF {M_AXI_GP0} \
  ] $M_AXI_GP0_ACLK
 
-
-
-  ####################################
-
-  # set FCLK_CLK0 [ create_bd_port -dir O -type clk -freq_hz 125000000 FCLK_CLK0 ]
-  set FCLK_CLK0 [ create_bd_port -dir O -type clk FCLK_CLK0 ]
-
-  # set FCLK_CLK0 [ ... ] -> [] are the return value, so set FCLK.. to whatever gets returned
-  # create_bd_port -> creates new ordinary (not bundled) external  port on the currently active block design.
-  # -dir O -> direction, from the block design's own perspective (O = output, this port sends a signal out of the block design, I for input, IO for bidirectional).
-  # -type clk -> this ports role is a clock not just generic data.
-  # -freq_hz 125000000 -> frequency as metadata on the port (other IP blocks' "block automation" can read this to auto-configure themselves correctly) (what .xdc timing constraints (create_clock) are checked against)
-  # FCLK_CLK0 -> Name given to that new port.
-
-  ####################################
-
-
   set S_AXI_HP0_aclk [ create_bd_port -dir I -type clk -freq_hz 125000000 S_AXI_HP0_aclk ]
   set S_AXI_HP1_aclk [ create_bd_port -dir I -type clk -freq_hz 125000000 S_AXI_HP1_aclk ]
   set S_AXI_HP2_aclk [ create_bd_port -dir I -type clk -freq_hz 125000000 S_AXI_HP2_aclk ]
@@ -259,34 +242,6 @@ proc create_root_design { parentCell } {
   set proc_sys_reset_3 [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_3 ]
 
 
-
-  ####################################
-
-  connect_bd_net -net processing_system7_FCLK_CLK0  [get_bd_pins processing_system7/FCLK_CLK0] \
-  [get_bd_pins proc_sys_reset_0/slowest_sync_clk] \
-  [get_bd_ports FCLK_CLK0]
-
-  # connect_bd_net -> creates a net (a wire, electrically. joins together any pin/port reference passed to it.
-  # Pass it three references, and all three become the same signal, not three separate point-to-point wires.
-  # -net processing_system7_FCLK_CLK0 -> optional flag giving this net an explicit name, rather than letting Vivado auto-generate one.
-  # shows up labeling the wire in the GUI's schematic view, and if a net with that name already exists passing the same -net name extends that existing net to include the new endpoint (imagine in the GUI).
-  # [get_bd_pins processing_system7/FCLK_CLK0] -> a query, find the pin named FCLK_CLK0 on the cell named processing_system7.
-  # This is the actual source of the clock signal — a pin on an instantiated IP block inside the design.
-  # Rmk: -> A cell is just Vivado's term for one instantiated IP block inside a block design — the schematic-diagram equivalent of a module instance in your RTL
-  #      -> When you drag the Zynq PS7 IP onto the canvas, that instance becomes a cell named processing_system7
-  #      -> When you drag in a "Processor System Reset" IP, that instance becomes a cell named proc_sys_reset_0.
-  #      -> get_bd_pins <cell>/<pin> is how you address "this specific pin, on this specific instance" — exactly like dut.led_blink_i.counter would address a signal inside a specific instance in a simulation waveform
-  #      -> "Slowest sync clk" reads as "the (slowest) clock to synchronize to" — a clock you'd feed into a synchronizer, not one it would produce. Thus is an input port
-  # [get_bd_pins proc_sys_reset_0/slowest_sync_clk] -> reset generator's clock input.
-  # [get_bd_ports FCLK_CLK0] -> a reference to the new external port just created. 
-  # "pins" live on cells/IP instances inside the block design , while "ports" are on the block design's own outer boundary (what becomes visible to whatever instantiates system from outside, i.e. red_pitaya_top.sv)
-  # 
-  # "connect the PS7's actual FCLK_CLK0 output pin, the reset generator's existing clock input pin, and the new external port you just created, all together as one single wire."
-
-  ####################################
-
-
-
   # Create interface connections
   connect_bd_intf_net -intf_net processing_system7_0_ddr [get_bd_intf_ports DDR] [get_bd_intf_pins processing_system7/DDR]
   connect_bd_intf_net -intf_net processing_system7_0_fixed_io [get_bd_intf_ports FIXED_IO] [get_bd_intf_pins processing_system7/FIXED_IO]
@@ -299,8 +254,8 @@ proc create_root_design { parentCell } {
   [get_bd_pins processing_system7/M_AXI_GP1_ACLK] \
   [get_bd_pins proc_sys_reset_3/slowest_sync_clk]
 
-  # connect_bd_net -net processing_system7_FCLK_CLK0  [get_bd_pins processing_system7/FCLK_CLK0] \
-  # [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
+  connect_bd_net -net processing_system7_FCLK_CLK0  [get_bd_pins processing_system7/FCLK_CLK0] \
+  [get_bd_pins proc_sys_reset_0/slowest_sync_clk]
 
   connect_bd_net -net processing_system7_FCLK_CLK1  [get_bd_pins processing_system7/FCLK_CLK1] \
   [get_bd_pins proc_sys_reset_2/slowest_sync_clk]

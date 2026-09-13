@@ -70,9 +70,29 @@ async def test_frequency_accuracy(dut):
 
     dut._log.info(f"ftw={ftw} correctly produced a tone at bin {peak_bin}/{n_samples}.")
 
-"""@cocotb.test()
-async def test_frequency_resolution(dut):
-"""
+@cocotb.test()
+async def test_frequency_accuracy(dut):
+    """Confirm ftw -> f_out scaling is correct, spanning low and high
+    ftw - a plain adder has no reason to behave differently across its
+    range, so this is cheap extra confidence, not a different test."""
+    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
+    await reset_dut(dut)
+
+    n_samples = 1024
+    for n_cycles in [3, 37, 499]:  # spans low to near-Nyquist
+        ftw = n_cycles * 2**PHASE_WIDTH // n_samples
+        dut.ftw.value = ftw
+        for _ in range(LATENCY):
+            await RisingEdge(dut.clk)
+        samples = np.empty(n_samples, dtype=np.int64)
+        for k in range(n_samples):
+            await RisingEdge(dut.clk)
+            samples[k] = dut.sin_o.value.signed_integer
+        spectrum = np.abs(np.fft.fft(samples))
+        peak_bin = np.argmax(spectrum[1:n_samples // 2]) + 1
+        assert peak_bin == n_cycles, (
+            f"ftw={ftw}: FFT peak at bin {peak_bin}, expected {n_cycles}")
+        dut._log.info(f"ftw={ftw} correctly produced a tone at bin {peak_bin}/{n_samples}.")
 
 
 

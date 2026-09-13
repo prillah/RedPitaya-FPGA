@@ -28,6 +28,9 @@ COCOTB_TEST_MODULES = test_dds_cordic_freq_accuracy
 # for a dump.vcd waveform viewable in GTKWave.
 EXTRA_ARGS += --trace --trace-structs
 
+# Make phase width shorter to decrease simulation time
+# EXTRA_ARGS += -GPHASE_WIDTH=20
+
 # Override parameters for simulation
 # EXTRA_ARGS += -GCOUNTER_WIDTH=6 -GLED_BIT=5
 

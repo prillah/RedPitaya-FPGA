@@ -37,16 +37,14 @@ async def test_frequency_resolution(dut):
     for _ in range(LATENCY):
         await RisingEdge(dut.clk)
 
-    start_val = dut.sin_o.value.signed_integer
-    measured_period = 0
-
-    for cycle in range(1, expected_period_cycles+5):
+    # check if phase accum. wraps around at expected point
+    for cycle in range(1, expected_period_cycles + 5):
         await RisingEdge(dut.clk)
-        if dut.sin_o.value.signed_integer == start_val and cycle>1:
+        if dut.phase_acc.value.integer == 0 and cycle > 1:
             measured_period = cycle
             break
-
-    assert measured_period!=0, "did not observe the accumulator wrapping back around"
+    else:
+        assert False, "did not observe the accumulator wrapping back around"
 
     assert measured_period == expected_period_cycles, (
         f"measured period {measured_period} cycles, "
