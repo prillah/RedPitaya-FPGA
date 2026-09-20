@@ -6,6 +6,10 @@
 // (c) Red Pitaya  http://www.redpitaya.com
 ////////////////////////////////////////////////////////////////////////////////
 
+/////////
+// Adapted barebones file for dds module
+/////////
+
 /*
 Top module for a barebones project.
 */
@@ -34,6 +38,20 @@ module red_pitaya_top #()
   inout  logic          DDR_ras_n  ,
   inout  logic          DDR_reset_n,
   inout  logic          DDR_we_n
+
+  // ADC clock -> used as the master timing reference for the whole DAC path (such that ADC and DAC in defined phase relation)
+  // (NOT the PS7's FCLK_CLK0 as compared to LED prj)
+  // Pin names/constraints should already be in red_pitaya.xdc.
+  input  logic [2-1:0]  adc_clk_i,  // pick out diff. pair adc_clk_i[0] and adc_clk_i[1] ({n,p})
+
+  // DAC ports matching shared root sdc/red_pitaya.xdc
+  output logic [14-1:0] dac_dat_o,
+  output logic          dac_wrt_o,
+  output logic          dac_sel_o,
+  output logic          dac_clk_o,
+  output logic          dac_rst_o 
+
+
 );
 
 system system_i
@@ -64,3 +82,19 @@ system system_i
 );
 
 endmodule: red_pitaya_top
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
