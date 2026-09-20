@@ -244,3 +244,6 @@ set_false_path -from [get_clocks clk_fpga_0]  -to [get_clocks pdm_clk]
 set_false_path -from [get_clocks dac_clk_o] -to [get_clocks dac_clk_2x]
 set_false_path -from [get_clocks dac_clk_o] -to [get_clocks dac_clk_2p]
 set_false_path -from [get_clocks pll_adc_clk] -to [get_clocks par_clk]
+# timing constraint, not an electrical/pin one tells Vivado's static timing analyzer: don't bother checking 
+# setup/hold timing for any signal path that starts in the adc_clk domain and ends in the dac_clk_o domain
+# because these are two independently-generated clocks
