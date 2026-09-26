@@ -71,7 +71,7 @@ async def test_frequency_accuracy(dut):
     dut._log.info(f"ftw={ftw} correctly produced a tone at bin {peak_bin}/{n_samples}.")
 
 @cocotb.test()
-async def test_frequency_accuracy(dut):
+async def test_frequency_accuracy_sweep(dut):
     """Confirm ftw -> f_out scaling is correct, spanning low and high
     ftw - a plain adder has no reason to behave differently across its
     range, so this is cheap extra confidence, not a different test."""

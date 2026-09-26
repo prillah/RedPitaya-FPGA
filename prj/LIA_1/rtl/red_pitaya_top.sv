@@ -37,7 +37,7 @@ module red_pitaya_top #()
   inout  logic          DDR_odt    ,
   inout  logic          DDR_ras_n  ,
   inout  logic          DDR_reset_n,
-  inout  logic          DDR_we_n
+  inout  logic          DDR_we_n,
 
   // ADC clock -> used as the master timing reference for the whole DAC path (such that ADC and DAC in defined phase relation)
   // (NOT the PS7's FCLK_CLK0 as compared to LED prj)
