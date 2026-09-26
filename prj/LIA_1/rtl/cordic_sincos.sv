@@ -86,7 +86,26 @@ module cordic_sincos #(
         cos_o = x[N_STAGES][WORK_WIDTH-1 -: OUT_WIDTH];
         sin_o = y[N_STAGES][WORK_WIDTH-1 -: OUT_WIDTH];
     end
-    // TODO: Be aware of the fact that this truncation is like floor() in python and adds a dc offset (since we work with 2s complement)
+    // TODO: Be aware of the fact that this truncation is like floor() in python and adds a dc offset (since we work with 2s complement)!!!
+
+    // Would need to add something like the following in order to remove the DC bias
+    // localparam signed [WORK_WIDTH-1:0] ROUND_CONST = 1 <<< (GUARD_BITS-1);
+    // localparam signed [WORK_WIDTH-1:0] WORK_MAX    = {1'b0, {(WORK_WIDTH-1){1'b1}}}; // max positive value, e.g. 131071
+
+    // logic signed [WORK_WIDTH:0] x_sum, y_sum;   // one extra bit — can't silently wrap here
+    // logic signed [WORK_WIDTH-1:0] x_rnd, y_rnd;
+
+    // always_comb begin
+    //     x_sum = {x[N_STAGES][WORK_WIDTH-1], x[N_STAGES]} + ROUND_CONST; // sign-extend, then add
+    //     y_sum = {y[N_STAGES][WORK_WIDTH-1], y[N_STAGES]} + ROUND_CONST;
+
+        // saturate back down in case rounding pushed us past full scale
+    //     x_rnd = (x_sum > WORK_MAX) ? WORK_MAX : x_sum[WORK_WIDTH-1:0];
+    //     y_rnd = (y_sum > WORK_MAX) ? WORK_MAX : y_sum[WORK_WIDTH-1:0];
+
+    //     cos_o = x_rnd[WORK_WIDTH-1 -: OUT_WIDTH];
+    //     sin_o = y_rnd[WORK_WIDTH-1 -: OUT_WIDTH];
+    // end
 
 endmodule
 
