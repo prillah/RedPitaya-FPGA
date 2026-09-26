@@ -27,12 +27,22 @@ module cordic_sincos #(
     output logic signed [OUT_WIDTH-1:0] cos_o
 );
 
+    `include "cordic_constants.svh" // reads sv header file to get x0 and also assert that the calculation of it was with the right params.
+    initial begin   // check exactly if x0 and atan LUT generated with right parameters otherwise abort
+        if (N_STAGES   != `CORDIC_GEN_N_STAGES  ||
+            OUT_WIDTH  != `CORDIC_GEN_OUT_WIDTH ||
+            GUARD_BITS != `CORDIC_GEN_GUARD_BITS)
+            $fatal(1, "cordic_constants.svh was generated for N_STAGES=%0d OUT_WIDTH=%0d GUARD_BITS=%0d, but this instance uses N_STAGES=%0d OUT_WIDTH=%0d GUARD_BITS=%0d , need to re-run scripts/gen_cordic_constants.py",
+                `CORDIC_GEN_N_STAGES, `CORDIC_GEN_OUT_WIDTH, `CORDIC_GEN_GUARD_BITS,
+                N_STAGES, OUT_WIDTH, GUARD_BITS);
+    end
+
     localparam int WORK_WIDTH  = OUT_WIDTH + GUARD_BITS;    // how wide x,y,z adders and so on need to be (internal precision)
 
     // X0 = (K * (2**(WORK_WIDTH-1)-1)), K = prod(cos(atan(2^-i))) for i=0,...,15.
     // computed by scripts/gen_cordic_constants.py for chosen N_STAGES.
     // Done to gain-precorrect so no output multiplier is needed after the pipeline.
-    localparam signed [WORK_WIDTH-1:0] X0 = 18'sd79593;  // N_STAGES=16, OUT_WIDTH=14, GUARD_BITS=4
+    // localparam signed [WORK_WIDTH-1:0] X0 = 18'sd79593;  // N_STAGES=16, OUT_WIDTH=14, GUARD_BITS=4
 
     logic signed [WORK_WIDTH-1:0] atan_lut [0:N_STAGES-1];   // declaring memory array: logic signed [packed dimension, i.e. width of one element]   atan_lut   [unpacked dimension, i.e. how many elements, atan_lut[i]]
     initial $readmemh("atan_table.mem", atan_lut);

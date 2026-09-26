@@ -39,6 +39,13 @@ sim: atan_table.mem
 atan_table.mem: scripts/gen_cordic_constants.py
 	python3 scripts/gen_cordic_constants.py
 
+sim: atan_table.mem cordic_constants.svh
+
+atan_table.mem cordic_constants.svh: scripts/gen_cordic_constants.py
+	python3 scripts/gen_cordic_constants.py
+
+EXTRA_ARGS += -Irtl # is Verilator's include-directory flag. without it, 
+# 'include "cordic_constants.svh" won't resolve since Verilator doesn't automatically search every source file's directory
 
 # ============================================================
 # Fixed machinery - do not edit below this line
