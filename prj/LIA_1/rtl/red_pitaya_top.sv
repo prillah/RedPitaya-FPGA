@@ -126,6 +126,8 @@ BUFG bufg_dac_clk_2p (.O (dac_clk_2p), .I (pll_dac_clk_2p));
 
 // Resets given by PLL lock, so if PLL loses lock on we reset
 // TODO: later include here PS reset too through OR gate (~frstn[0] | ~pll_locked)
+logic dac_rst;   // active-high
+
 always_ff @(posedge dac_clk_1x)
   dac_rst <= ~pll_locked;
 
@@ -155,6 +157,8 @@ dds_cordic #(
 );
 
 // Convert from 2s complement (DDS output) to straight binary of DAC (signed-to-unsigned) + negative-slope conversion (due to inversion at opamp)
+logic [14-1:0] dac_dat_a, dac_dat_b;
+
 always_ff @(posedge dac_clk_1x) begin
     dac_dat_a <= {dds_cos[14-1], ~dds_cos[14-2:0]};
     dac_dat_b <= {dds_sin[14-1], ~dds_sin[14-2:0]};
