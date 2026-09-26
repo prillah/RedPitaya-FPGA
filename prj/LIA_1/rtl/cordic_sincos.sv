@@ -82,24 +82,11 @@ module cordic_sincos #(
     endgenerate
 
     // final stage, assign the outputs -> just truncation for DAC/ADC width (no rotation or so needed)
-    //always_comb begin
-    //    cos_o = x[N_STAGES][WORK_WIDTH-1 -: OUT_WIDTH];
-    //    sin_o = y[N_STAGES][WORK_WIDTH-1 -: OUT_WIDTH];
-    //end
-
-
-    localparam signed [WORK_WIDTH-1:0] ROUND_CONST = 1 <<< (GUARD_BITS-1); // = 8 for GUARD_BITS=4
-    // need to add half of largest number from truncated bits -> then no longer have the DC bias from truncation (is cosmetics but still cool)
-
-    logic signed [WORK_WIDTH-1:0] x_rnd, y_rnd;
-
-    // rounding to DAC/ADC width (no rotation or so needed)
     always_comb begin
-        x_rnd = x[N_STAGES] + ROUND_CONST;
-        y_rnd = y[N_STAGES] + ROUND_CONST;
-        cos_o = x_rnd[WORK_WIDTH-1 -: OUT_WIDTH];
-        sin_o = y_rnd[WORK_WIDTH-1 -: OUT_WIDTH];
+        cos_o = x[N_STAGES][WORK_WIDTH-1 -: OUT_WIDTH];
+        sin_o = y[N_STAGES][WORK_WIDTH-1 -: OUT_WIDTH];
     end
+    // TODO: Be aware of the fact that this truncation is like floor() in python and adds a dc offset (since we work with 2s complement)
 
 endmodule
 
