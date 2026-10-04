@@ -34,14 +34,14 @@ EXTRA_ARGS += --trace --trace-structs
 # Override parameters for simulation
 # EXTRA_ARGS += -GCOUNTER_WIDTH=6 -GLED_BIT=5
 
-sim: atan_table.mem
+# sim: atan_table.mem
  
-atan_table.mem: scripts/gen_cordic_constants.py
-	python3 scripts/gen_cordic_constants.py
+# atan_table.mem: scripts/gen_cordic_constants.py
+# 	python3 scripts/gen_cordic_constants.py
 
-sim: atan_table.mem cordic_constants.svh
+sim: cordic_constants.svh
 
-atan_table.mem cordic_constants.svh: scripts/gen_cordic_constants.py
+cordic_constants.svh: scripts/gen_cordic_constants.py
 	python3 scripts/gen_cordic_constants.py
 
 EXTRA_ARGS += -Irtl # is Verilator's include-directory flag. without it, 
