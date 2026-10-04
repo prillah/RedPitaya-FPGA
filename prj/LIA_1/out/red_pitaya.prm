@@ -1,0 +1,11 @@
+===================================
+Configuration Memory information
+===================================
+File Format        BIN
+Interface          SMAPX32
+Size               512K
+Start Address      0x00000000
+End Address        0x0007FFFF
+
+Addr1         Addr2         Date                    File(s)
+0x00000000    0x0006C663    Oct  4 21:58:42 2026    out/red_pitaya.bit
