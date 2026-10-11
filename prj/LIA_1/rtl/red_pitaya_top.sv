@@ -138,7 +138,7 @@ always_ff @(posedge dac_clk_1x)
 // temporary hardcoded frequency-tuning word for 1 MHz @ 125 MHz clk (round(1e6 / 125e6 * 2^32) = 42949673)
 // TODO: Later connect phase word to register connected to PS
 logic [PHASE_WIDTH-1:0] ftw;
-assign ftw = 32'd42949673;
+assign ftw = 32'd34359738;
 
 logic signed [OUT_WIDTH-1:0] dds_sin, dds_cos;
 
