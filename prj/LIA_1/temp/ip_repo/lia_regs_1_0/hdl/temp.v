@@ -113,8 +113,14 @@
 
 	// I/O Connections assignments
 
-		assign S_AXI_AWREADY	= axi_awready && !axi_bvalid;   // LIA: no new address while a write response is pending
-		// LIA: assign S_AXI_WREADY moved below the state machine declarations (it uses state_write)
+
+
+    // TODO: Continue from here
+
+
+
+	assign S_AXI_AWREADY	= axi_awready && !axi_bvalid;   // LIA: no new address while a write response is pending
+	// LIA: assign S_AXI_WREADY moved below the state machine declarations (it uses state_write)
 	assign S_AXI_BRESP	= axi_bresp;
 	assign S_AXI_BVALID	= axi_bvalid;
 	assign S_AXI_ARREADY	= axi_arready;
