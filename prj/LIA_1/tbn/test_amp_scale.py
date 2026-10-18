@@ -43,7 +43,63 @@ async def run_stream(dut, dins, gains):
 
 @cocotb.test()
 async def test_latency(dut):
-    
+    """Check that output follows the inputs after exactly LATENCY clk cycles"""
+    await start(dut)    # flush system with 0
+    dut.din.value = 1000
+    dut.gain.value = GAIN_MAX
+    await RisingEdge(dut.clk)
+    await Timer(1, unit="ns")
+    assert dut.dout.value.to_signed() == 0, "output changed after 1 cycle"
+    await RisingEdge(dut.clk)
+    await Timer(1, unit="ns")
+    assert dut.dout.value.to_signed() == 1000, "output not valid after 2 cycles"
+
+@cocotb.test()
+async def test_gain_zero(dut):
+    """If gain is 0 the output should stay silent"""
+    await start(dut)
+    dins = list(range(DIN_MIN, DIN_MAX + 1))
+    outs = await run_stream(dut, dins, [0] * len(dins))
+    assert all(o == 0 for o in outs), "gain 0 must give 0"  # all() returns True if every element in an iterable is truthy, and False if any element is falsy.
+
+@cocotb.test()
+async def test_gain_half(dut):
+    """Check if gain 0x8000 halves the inputs"""
+    await start(dut)
+    dins = list(range(DIN_MIN, DIN_MAX + 1))
+    outs = await run_stream(dut, dins, [0x8000] * len(dins)) 
+    for d, o in zip(dins, outs):
+        assert o == model(d, 0x8000), f"din={d}: got {o}, model {model(d, 0x8000)}"
+        assert abs(o - d / 2) <= 0.5, f"din={d}: {o} is not within 0.5 of {d / 2}"
+
+@cocotb.test()
+async def test_gain_full(dut):
+    """Check if gain 0xFFFF returns input non changed"""
+    await start(dut)
+    dins = list(range(DIN_MIN, DIN_MAX + 1))
+    outs = await run_stream(dut, dins, [GAIN_MAX] * len(dins))
+    bad = [(d, o) for d, o in zip(dins, outs) if d != o]
+    assert not bad, f"gain 0xFFFF changed {len(bad)} values, first: {bad[0]}"
+
+@cocotb.test()
+async def test_extremes_no_wrap(dut):
+    """Check if extreme inputs and gains match the model (do not get wrap-around in the 30-bit product)"""
+    await start(dut)
+    pairs = [(d, g) for d in (DIN_MIN, DIN_MAX) for g in (0, 1, 0x8000, GAIN_MAX)]
+    dins, gains = zip(*pairs)
+    outs = await run_stream(dut, dins, gains)
+    for (d, g), o in zip(pairs, outs):
+        assert o == model(d, g), f"din={d}, gain={g}: got {o}, model {model(d, g)}"
+
+@cocotb.test()
+async def test_gain_sweep(dut):
+    """Check every gain value at full-scale input"""
+    await start(dut)
+    gains = list(range(GAIN_MAX + 1))
+    outs = await run_stream(dut, [DIN_MAX] * len(gains), gains)
+    for g, o in zip(gains, outs):
+        assert o == model(DIN_MAX, g), f"gain={g}: got {o}, expected {model(DIN_MAX, g)}"
+
 
 
 
