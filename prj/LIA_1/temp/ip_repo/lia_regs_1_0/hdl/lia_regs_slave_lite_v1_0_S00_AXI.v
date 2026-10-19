@@ -125,7 +125,7 @@
 	 localparam Idle = 2'b00,Raddr = 2'b10,Rdata = 2'b11 ,Waddr = 2'b10,Wdata = 2'b11;
 	// Implement Write state machine
 	// Outstanding write transactions are not supported by the slave i.e., master should assert bready to receive response on or before it starts sending the new transaction
-	always @(posedge S_AXI_ACLK)                                 
+	always @(posedge S_AXI_ACLK)                                
 	  begin                                 
 	     if (S_AXI_ARESETN == 1'b0)                                 
 	       begin                                 

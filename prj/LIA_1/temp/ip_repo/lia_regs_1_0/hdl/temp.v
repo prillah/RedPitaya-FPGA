@@ -14,8 +14,8 @@
 	)
 	(
 		// Users to add ports here
-			output wire [31:0] ftw_o,   // LIA: tuning word to the DDS (register 0)
-			output wire [15:0] amp_o,   // LIA: amplitude gain to the scaler (register 1)
+		output wire [31:0] ftw_o,   // LIA: tuning word to the DDS (register 0)
+		output wire [15:0] amp_o,   // LIA: amplitude gain to the scaler (register 1)
 
 		// User ports ends
 		// Do not modify the ports beyond this line
@@ -27,58 +27,58 @@
 		// Write address (issued by master, acceped by Slave)
 		input wire [C_S_AXI_ADDR_WIDTH-1 : 0] S_AXI_AWADDR,
 		// Write channel Protection type. This signal indicates the
-    		// privilege and security level of the transaction, and whether
-    		// the transaction is a data access or an instruction access.
+    	// privilege and security level of the transaction, and whether
+    	// the transaction is a data access or an instruction access.
 		input wire [2 : 0] S_AXI_AWPROT,
 		// Write address valid. This signal indicates that the master signaling
-    		// valid write address and control information.
+    	// valid write address and control information.
 		input wire  S_AXI_AWVALID,
 		// Write address ready. This signal indicates that the slave is ready
-    		// to accept an address and associated control signals.
+    	// to accept an address and associated control signals.
 		output wire  S_AXI_AWREADY,
 		// Write data (issued by master, acceped by Slave) 
 		input wire [C_S_AXI_DATA_WIDTH-1 : 0] S_AXI_WDATA,
 		// Write strobes. This signal indicates which byte lanes hold
-    		// valid data. There is one write strobe bit for each eight
-    		// bits of the write data bus.    
+    	// valid data. There is one write strobe bit for each eight
+    	// bits of the write data bus.    
 		input wire [(C_S_AXI_DATA_WIDTH/8)-1 : 0] S_AXI_WSTRB,
 		// Write valid. This signal indicates that valid write
-    		// data and strobes are available.
+    	// data and strobes are available.
 		input wire  S_AXI_WVALID,
 		// Write ready. This signal indicates that the slave
-    		// can accept the write data.
+    	// can accept the write data.
 		output wire  S_AXI_WREADY,
 		// Write response. This signal indicates the status
-    		// of the write transaction.
+    	// of the write transaction.
 		output wire [1 : 0] S_AXI_BRESP,
 		// Write response valid. This signal indicates that the channel
-    		// is signaling a valid write response.
+    	// is signaling a valid write response.
 		output wire  S_AXI_BVALID,
 		// Response ready. This signal indicates that the master
-    		// can accept a write response.
+    	// can accept a write response.
 		input wire  S_AXI_BREADY,
 		// Read address (issued by master, acceped by Slave)
 		input wire [C_S_AXI_ADDR_WIDTH-1 : 0] S_AXI_ARADDR,
 		// Protection type. This signal indicates the privilege
-    		// and security level of the transaction, and whether the
-    		// transaction is a data access or an instruction access.
+    	// and security level of the transaction, and whether the
+    	// transaction is a data access or an instruction access.
 		input wire [2 : 0] S_AXI_ARPROT,
 		// Read address valid. This signal indicates that the channel
-    		// is signaling valid read address and control information.
+    	// is signaling valid read address and control information.
 		input wire  S_AXI_ARVALID,
 		// Read address ready. This signal indicates that the slave is
-    		// ready to accept an address and associated control signals.
+    	// ready to accept an address and associated control signals.
 		output wire  S_AXI_ARREADY,
 		// Read data (issued by slave)
 		output wire [C_S_AXI_DATA_WIDTH-1 : 0] S_AXI_RDATA,
 		// Read response. This signal indicates the status of the
-    		// read transfer.
+    	// read transfer.
 		output wire [1 : 0] S_AXI_RRESP,
 		// Read valid. This signal indicates that the channel is
-    		// signaling the required read data.
+    	// signaling the required read data.
 		output wire  S_AXI_RVALID,
 		// Read ready. This signal indicates that the master can
-    		// accept the read data and response information.
+    	// accept the read data and response information.
 		input wire  S_AXI_RREADY
 	);
 
@@ -106,34 +106,28 @@
 	//-- Signals for user logic register space example
 	//------------------------------------------------
 	//-- Number of Slave Registers 4 (only use 2 of 4 possible ones)
-		reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg0;   // LIA: FTW (offset 0x00), 32 bit
-		reg [15:0]	slv_reg1;   // LIA: AMP (offset 0x04), only 16 bit stored
-		// LIA: slv_reg2 and slv_reg3 removed (nothing at offsets 0x08 and 0x0C)
+	reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg0;   // LIA: FTW (offset 0x00), 32 bit
+	reg [15:0]	slv_reg1;   // LIA: AMP (offset 0x04), only 16 bit stored
+	// LIA: slv_reg2 and slv_reg3 removed (nothing at offsets 0x08 and 0x0C)
 	integer	 byte_index;
 
 	// I/O Connections assignments
 
-
-
-    // TODO: Continue from here
-
-
-
-	assign S_AXI_AWREADY	= axi_awready && !axi_bvalid;   // LIA: no new address while a write response is pending
-	// LIA: assign S_AXI_WREADY moved below the state machine declarations (it uses state_write)
+	assign S_AXI_AWREADY	= axi_awready && !axi_bvalid;   // LIA: no new address accepted while a write response is pending
+	// LIA: assign S_AXI_WREADY moved below the state machine declarations (since it uses state_write)
 	assign S_AXI_BRESP	= axi_bresp;
 	assign S_AXI_BVALID	= axi_bvalid;
 	assign S_AXI_ARREADY	= axi_arready;
 	assign S_AXI_RRESP	= axi_rresp;
 	assign S_AXI_RVALID	= axi_rvalid;
-	 //state machine varibles 
-	 reg [1:0] state_write;
-	 reg [1:0] state_read;
-	 //State machine local parameters
-	 localparam Idle = 2'b00,Raddr = 2'b10,Rdata = 2'b11 ,Waddr = 2'b10,Wdata = 2'b11;
-		 // LIA: accept write data only while no response is pending, and only once the address is known
-		 // (arriving together with the data, or already stored: state Wdata). Data before address waits.
-		 assign S_AXI_WREADY	= axi_wready && !axi_bvalid && (S_AXI_AWVALID || state_write == Wdata);
+	//state machine varibles 
+	reg [1:0] state_write;
+	reg [1:0] state_read;
+	//State machine local parameters
+	localparam Idle = 2'b00,Raddr = 2'b10,Rdata = 2'b11 ,Waddr = 2'b10,Wdata = 2'b11;
+	// LIA: accept write data only while no response is pending, and only once the address is known
+    // (arriving together with the data, or already stored: state Wdata). Data before address should wait.
+	assign S_AXI_WREADY	= axi_wready && !axi_bvalid && (S_AXI_AWVALID || state_write == Wdata);
 	// Implement Write state machine
 	// Outstanding write transactions are not supported by the slave i.e., master should assert bready to receive response on or before it starts sending the new transaction
 	always @(posedge S_AXI_ACLK)                                 
@@ -165,7 +159,7 @@
 	               if (S_AXI_AWVALID && S_AXI_AWREADY)                                 
 	                  begin                                 
 	                    axi_awaddr <= S_AXI_AWADDR;                                 
-	                    if(S_AXI_WVALID && S_AXI_WREADY)   // LIA: was if(S_AXI_WVALID)                                  
+	                    if(S_AXI_WVALID && S_AXI_WREADY)   // LIA: was if(S_AXI_WVALID) before                                 
 	                      begin                                   
 	                        axi_awready <= 1'b1;                                 
 	                        state_write <= Waddr;                                 
@@ -186,7 +180,7 @@
 	             end                                 
 	          Wdata:        //At this state, slave is ready to receive the data packets until the number of transfers is equal to burst length                                 
 	             begin                                 
-	               if (S_AXI_WVALID && S_AXI_WREADY)   // LIA: was if (S_AXI_WVALID)                                 
+	               if (S_AXI_WVALID && S_AXI_WREADY)   // LIA: was if (S_AXI_WVALID) before                                
 	                 begin                                 
 	                   state_write <= Waddr;                                 
 	                   axi_bvalid <= 1'b1;                                 
@@ -219,9 +213,9 @@
 	      slv_reg1 <= 0;
 	    end 
 	  else begin
-	    if (S_AXI_WVALID && S_AXI_WREADY)   // LIA: was if (S_AXI_WVALID)
+	    if (S_AXI_WVALID && S_AXI_WREADY)   // LIA: was if (S_AXI_WVALID) before
 	      begin
-	        case ( (state_write == Wdata) ? axi_awaddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] : S_AXI_AWADDR[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] )   // LIA: was (S_AXI_AWVALID) ? live : stored
+	        case     // LIA: was (S_AXI_AWVALID) ? live : stored
 	          2'h0:
 	            for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
 	              if ( S_AXI_WSTRB[byte_index] == 1 ) begin
@@ -254,7 +248,6 @@
 	         axi_arready <= 1'b0;                                       
 	         axi_rvalid <= 1'b0;                                       
 	         axi_rresp <= 1'b0;                                       
-	         axi_araddr <= 0;   // LIA: added, so RDATA is defined after reset
 	         state_read <= Idle;                                       
 	        end                                       
 	      else                                       
@@ -294,10 +287,10 @@
 	          end                                       
 	        end                                         
 	// Implement memory mapped register select and read logic generation
-	  assign S_AXI_RDATA = (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 2'h0) ? slv_reg0 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 2'h1) ? {16'b0, slv_reg1} : 0;   // LIA: two registers, AMP zero-extended
+	assign S_AXI_RDATA = (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 2'h0) ? slv_reg0 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 2'h1) ? {16'b0, slv_reg1} : 0;   // LIA: two registers, AMP zero-extended
 	// Add user logic here
-		assign ftw_o = slv_reg0;   // LIA
-		assign amp_o = slv_reg1;   // LIA
+	assign ftw_o = slv_reg0;   // LIA
+	assign amp_o = slv_reg1;   // LIA
 	// User logic ends
 
 	endmodule
