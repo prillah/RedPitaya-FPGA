@@ -284,7 +284,7 @@
 	                    axi_rvalid <= 1'b1;                                       
 	                    axi_arready <= 1'b0;                                       
 	                  end                                       
-	                else state_read <= state_read;                                       
+	                else stat	e_read <= state_read;                                       
 	              end                                       
 	            Rdata:        //At this state, slave is ready to send the data packets until the number of transfers is equal to burst length                                       
 	              begin                                           
