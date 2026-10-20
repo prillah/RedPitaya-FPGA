@@ -106,6 +106,7 @@
 	reg  	axi_arready;
 	reg [1 : 0] 	axi_rresp;
 	reg  	axi_rvalid;
+	reg [C_S_AXI_DATA_WIDTH-1 : 0] 	axi_rdata;   // LIA: registered read data (stable while RVALID)
 
 	// Example-specific design signals
 	// local parameter for addressing 32 bit / 64 bit C_S_AXI_DATA_WIDTH
@@ -229,7 +230,10 @@
 	  else begin
 	    if (S_AXI_WVALID && S_AXI_WREADY)   // LIA: was if (S_AXI_WVALID) before
 	      begin
-	        case     // LIA: was (S_AXI_AWVALID) ? live : stored
+	        // LIA: was (S_AXI_AWVALID) ? live : stored. In state Wdata the address was stored earlier,
+	        // and S_AXI_AWVALID may already belong to the NEXT transaction, so decide by state instead.
+	        case ( (state_write == Wdata) ? axi_awaddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB]
+	                                      : S_AXI_AWADDR[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] )
 	          2'h0:
 	            for ( byte_index = 0; byte_index <= (C_S_AXI_DATA_WIDTH/8)-1; byte_index = byte_index+1 )
 	              if ( S_AXI_WSTRB[byte_index] == 1 ) begin
@@ -283,6 +287,12 @@
 	                    state_read <= Rdata;                                       
 	                    axi_araddr <= S_AXI_ARADDR;                                       
 	                    axi_rvalid <= 1'b1;                                       
+	                    // LIA: take a snapshot of the register NOW, so RDATA cannot change while RVALID is high
+	                    case (S_AXI_ARADDR[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB])
+	                      2'h0:    axi_rdata <= slv_reg0;
+	                      2'h1:    axi_rdata <= {16'b0, slv_reg1};   // AMP zero-extended
+	                      default: axi_rdata <= 0;
+	                    endcase
 	                    axi_arready <= 1'b0;                                       
 	                  end                                       
 	                else state_read <= state_read;                                       
@@ -301,7 +311,7 @@
 	          end                                       
 	        end                                         
 	// Implement memory mapped register select and read logic generation
-	assign S_AXI_RDATA = (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 2'h0) ? slv_reg0 : (axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] == 2'h1) ? {16'b0, slv_reg1} : 0;   // LIA: two registers, AMP zero-extended
+	assign S_AXI_RDATA = axi_rdata;   // LIA: was a combinational mux on axi_araddr (RDATA could change under RVALID)
 	// Add user logic here
 	assign ftw_o = slv_reg0;   // LIA
 	assign amp_o = slv_reg1;   // LIA
