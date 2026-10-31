@@ -66,9 +66,9 @@ async def cycle(dut, drive, reset=False):
 
     await FallingEdge(dut.S_AXI_ACLK)
     dut.S_AXI_ARESETN.value = 0 if reset else 1          # active low reset
-    for name, val in {**IDLE_INPUTS, **drive}.items():   # later dict wins -> drive overrides idle
+    for name, val in {**IDLE_INPUTS, **drive}.items():   # later dict wins -> drive overrides idle ( ** unpacks a dict into the new one, when both contain the same key, the later one wins)
         getattr(dut, name).value = val
-    await ReadOnly()    # await ReadOnly() pauses coroutine until the simulator has finished all activity in current time step
+    await ReadOnly()    # await ReadOnly() pauses coroutine until the simulator has finished all activity in current time step (let all logic paths settle before reading any values)
     return {short: to_int(getattr(dut, port).value) for short, port in OUTPUTS.items()}
 
 async def reset_dut(dut, n_cycles=5):
@@ -81,30 +81,33 @@ async def reset_dut(dut, n_cycles=5):
 ###########################################
 
 async def axi_write(dut, addr, data, strb=0xF, aw_delay=0, w_delay=0, b_delay=0):
-    """One AXI4-Lite write. The three channels run independently:
-       AW (address) starts after aw_delay cycles, W (data+strobes) after w_delay,
-       and BREADY is raised after b_delay cycles (b_delay > 0 = master applies backpressure).
-       Returns BRESP. Also checks the slave's side of the protocol rules."""
+    """
+    one AXI4-Lite write. the three channels run independently:
+    -> AW (address) starts after aw_delay cycles
+    -> W (data+strobes) after w_delay,
+    -> BREADY is raised after b_delay cycles (b_delay > 0 = master applies backpressure)
+    Returns BRESP and checks the slaves side of the protocol rules
+    """
     aw_done = w_done = False
     bvalid_seen = False
-    for n in range(TIMEOUT):
-        drive = {}
+    for n in range(TIMEOUT):    # TIMEOUT is max cycles before declare that the peripheral hangs
+        drive = {}  # drive collects the pins that are not idle in this cycle
         if not aw_done and n >= aw_delay:
-            drive.update(S_AXI_AWVALID=1, S_AXI_AWADDR=addr)
+            drive.update(S_AXI_AWVALID=1, S_AXI_AWADDR=addr)    # d.update(...) takes key/value pairs given and writes into dictionary d. if key not exist yet, it is added. already existing key is overwritten.
         if not w_done and n >= w_delay:
             drive.update(S_AXI_WVALID=1, S_AXI_WDATA=data, S_AXI_WSTRB=strb)
         if n >= b_delay:
             drive["S_AXI_BREADY"] = 1
 
-        s = await cycle(dut, drive)
+        s = await cycle(dut, drive) # s is snapshot taken after cycle(), so holds slave’s outputs as next rising edge will see them
 
-        # Response channel first, using the flags from PREVIOUS cycles:
-        # a response may only appear after both address and data have been accepted.
+        # response may only appear after both address and data have been accepted
+        # BVALID is output of ff, so can only go high after rising edge where address and data were accepted
         if s["BVALID"]:
             assert aw_done and w_done, f"cycle {n}: BVALID before address and data were both accepted"
             bvalid_seen = True
-            if drive.get("S_AXI_BREADY"):
-                return s["BRESP"]
+            if drive.get("S_AXI_BREADY"):   # handshake check: BVALID=1 in snapshot. if also drive BREADY = 1 in same cycle then both high at next rising edge, so B transfer happens there
+                return s["BRESP"]   # handshake at the next edge, return BRESP
         else:
             assert not bvalid_seen, f"cycle {n}: slave dropped BVALID before BREADY handshake"
 
@@ -113,6 +116,38 @@ async def axi_write(dut, addr, data, strb=0xF, aw_delay=0, w_delay=0, b_delay=0)
         if drive.get("S_AXI_WVALID") and s["WREADY"]:
             w_done = True
     raise AssertionError(f"write to 0x{addr:X} timed out (aw_done={aw_done}, w_done={w_done})")
+
+async def axi_read(dut, addr, ar_delay=0, r_delay=0):
+    """
+    one AXI4-Lite read. Returns (RDATA, RRESP).
+    -> r_delay > 0 makes the master hold RREADY low for a while (backpressure), during which
+       the slave must keep RVALID high and RDATA/RRESP unchanged
+    """
+    ar_done = False
+    held = None                      # (RDATA, RRESP) when RVALID first went high
+    for n in range(TIMEOUT):
+        drive = {}
+        if not ar_done and n >= ar_delay:
+            drive.update(S_AXI_ARVALID=1, S_AXI_ARADDR=addr)
+        if n >= r_delay:
+            drive["S_AXI_RREADY"] = 1
+
+        s = await cycle(dut, drive)
+
+        if s["RVALID"]:
+            assert ar_done, f"cycle {n}: RVALID before the read address was accepted"
+            now = (s["RDATA"], s["RRESP"])
+            if held is None:
+                held = now
+            assert now == held, f"cycle {n}: RDATA/RRESP changed while RVALID high: {held} -> {now}"
+            if drive.get("S_AXI_RREADY"):
+                return held
+        else:
+            assert held is None, f"cycle {n}: slave dropped RVALID before RREADY handshake"
+
+        if drive.get("S_AXI_ARVALID") and s["ARREADY"]:
+            ar_done = True
+    raise AssertionError(f"read from 0x{addr:X} timed out (ar_done={ar_done})")
 
 
 
