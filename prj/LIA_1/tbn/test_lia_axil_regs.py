@@ -196,7 +196,23 @@ class RegModel:
 ### Tests                               ###
 ###########################################
 
+@cocotb.test()
+async def resettest_reset_values(dut):
+    """
+    after every reset both registers should be 0, the outputs 0, and all addresses read 0 with OKAY
+    """
+    start_clock(dut)
+    await reset_dut(dut)
+    s = await peek(dut)
+    assert s["ftw"] == 0 and s["amp"] == 0, f"outputs not zero after reset but: {s}"
+    for addr in (FTW, AMP, *UNUSED):        # the * operator performs iterable unpacking (** is to unpack dictionaries not iterable lists)
+        data, resp = await axi_read(dut, addr)
+        assert (data, resp) == (0, OKAY), f"0x{addr:X} read {data:#x}, resp {resp}"   
+        # :X gives the formatting instructions for the string -> X is hexadecimal
+        # :x formats the number as a lowercase hexadecimal string (ff)
+        # :#x automatically includes the base prefix (0x for hex) so 0xff for example
 
-
-
+@cocotb.test()
+async def test_write_then_read(dut):
+    
 
