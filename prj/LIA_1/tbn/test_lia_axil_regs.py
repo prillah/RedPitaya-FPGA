@@ -365,7 +365,7 @@ async def test_random_traffic(dut):
     check many different reads/writes with random addresses, strobes and channel delays. compare to reference model
     """
     start_clock(dut)
-    await reset_dut
+    await reset_dut(dut)
     rng = random.Random(1234)          # creates random number gen with fixed seed -> makes failures reproducible
     model = RegModel()
 

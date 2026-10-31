@@ -207,6 +207,7 @@
 	                   if (S_AXI_BREADY && axi_bvalid) axi_bvalid <= 1'b0;                                 
 	                 end                                              
 	             end                                 
+	          default: state_write <= Idle;   // LIA: unreachable encoding 2'b01 -> recover safely
 	          endcase                                 
 	        end                                 
 	      end                                 
@@ -265,7 +266,7 @@
 	         //asserting initial values to all 0's during reset                                       
 	         axi_arready <= 1'b0;                                       
 	         axi_rvalid <= 1'b0;                                       
-	         axi_rresp <= 1'b0;                                       
+	         axi_rresp <= 2'b00;   // LIA: was 1'b0 (width mismatch, axi_rresp is 2 bits)                                       
 	         state_read <= Idle;                                       
 	        end                                       
 	      else                                       
@@ -307,6 +308,7 @@
 	                  end                                       
 	                else state_read <= state_read;                                       
 	              end                                       
+	            default: state_read <= Idle;   // LIA: unreachable encoding 2'b01 -> recover safely
 	           endcase                                       
 	          end                                       
 	        end                                         

@@ -14,16 +14,16 @@ export PYTHONPATH := $(PWD)/tbn:$(PYTHONPATH)
 # For a design spanning multiple files, just add more lines:
 #   VERILOG_SOURCES += $(PWD)/hdl/nco.sv
 # VERILOG_SOURCES += $(PWD)/rtl/dds_cordic.sv
-VERILOG_SOURCES += $(PWD)/rtl/amp_scale.sv
+VERILOG_SOURCES += $(PWD)/rtl/lia_axil_regs.v
 
 # The module cocotb attaches its `dut` object to. Must match a module
 # name inside your .sv file(s).
-COCOTB_TOPLEVEL = amp_scale
+COCOTB_TOPLEVEL = lia_axil_regs
 
 # The Python file(s) containing your @cocotb.test() functions, without
 # the .py extension. Comma-separate for more than one:
 # cocotb runs every @cocotb.test() function found across all of them.
-COCOTB_TEST_MODULES = test_amp_scale
+COCOTB_TEST_MODULES = test_lia_axil_regs
 
 # for a dump.vcd waveform viewable in GTKWave.
 EXTRA_ARGS += --trace --trace-structs
@@ -39,10 +39,10 @@ EXTRA_ARGS += --trace --trace-structs
 # atan_table.mem: scripts/gen_cordic_constants.py
 # 	python3 scripts/gen_cordic_constants.py
 
-sim: cordic_constants.svh
+# sim: cordic_constants.svh
 
-cordic_constants.svh: scripts/gen_cordic_constants.py
-	python3 scripts/gen_cordic_constants.py
+# cordic_constants.svh: scripts/gen_cordic_constants.py
+# 	python3 scripts/gen_cordic_constants.py
 
 EXTRA_ARGS += -Irtl # is Verilator's include-directory flag. without it, 
 # 'include "cordic_constants.svh" won't resolve since Verilator doesn't automatically search every source file's directory
