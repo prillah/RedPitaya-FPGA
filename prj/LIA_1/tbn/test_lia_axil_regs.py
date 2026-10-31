@@ -214,5 +214,28 @@ async def resettest_reset_values(dut):
 
 @cocotb.test()
 async def test_write_then_read(dut):
+    """
+    Basic operation, write FTW and AMP, check outputs to DDS and then read them back and check again
+    """
+    start_clock(dut)
+    await reset_dut(dut)
+
+    assert await axi_write(dut, FTW, 0x12345678) == OKAY
+    assert await axi_write(dut, AMP, 0xABCD) == OKAY
+
+    s = await peek(dut)
+
+    assert s["ftw"] == 0x12345678, f"ftw out is {s['ftw']:#x}"  # check success of write operation to both registers
+    assert s["amp"] == 0xABCD, f"amp out is {s['amp']:#x}"
+
+    assert await axi_read(dut, FTW) == (0x12345678, OKAY)
+    assert await axi_read(dut, AMP) == (0xABCD, OKAY)
+
+@cocotb.test()
+async def test_amp_upper_half(dut):
+    """
     
+    """
+    start_clock(dut)
+    await reset_dut(dut)
 
