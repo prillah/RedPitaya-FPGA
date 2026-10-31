@@ -312,9 +312,32 @@ async def test_read_backpressure(dut):
 @cocotb.test()
 async def test_early_next_address(dut):
     """
+    Case if address of write 1 is accepted, but before data of write 1 comes, master already puts address of write 2 on AW.
+    Since in AXI channels are independent this is allowed. But data needs to still go to address of write 1. Check if that is the case.
+    """
+    start_clock(dut)
+    await reset_dut(dut)
+
+    # write 1 address phase only
+    s = await cycle(dut, dict(S_AXI_AWVALID=1, S_AXI_AWADDR=FTW))
+    assert s["AWREADY"], "slave not ready for address"
+    # write 1 data, but already showing write 2 address (AMP)
+    s = await cycle(dut, dict(S_AXI_AWVALID=1, S_AXI_AWADDR=AMP,
+                              S_AXI_WVALID=1, S_AXI_WDATA=0x5555, S_AXI_WSTRB=0xF,
+                              S_AXI_BREADY=1))
+    assert s["WREADY"], "slave did not accept the data"
+    assert s["AWREADY"] == 0, "slave accepted a second address while the first write was still open"
+    # wait and check succesfull write (wait for response)
+    for _ in range(3):
+        s = await cycle(dut, dict(S_AXI_BREADY=1))
+    assert s["ftw"] == 0x5555, f"data sent to wrong register: ftw={s['ftw']:#x}, amp={s['amp']:#x}"
+    assert s["amp"] == 0, f"AMP was written although data belongs to FTW (amp={s['amp']:#x})"
+
+@cocotb.test()
+async def test_read_data_stable_during_write(dut):
+    """
     
     """
-
 
 
 
