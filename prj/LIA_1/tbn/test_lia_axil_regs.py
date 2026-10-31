@@ -278,5 +278,56 @@ async def test_write_strobes(dut):
 @cocotb.test()
 async def test_channel_orderings(dut):
     """
+    AXI4Lite protocol lets AW and W arrive in any order and lets BREADY be late. Check that all these combinations work
+    """
+    start_clock(dut)
+    await reset_dut(dut)
+    cases = [   # (aw_delay, w_delay, b_delay, description)
+        (0, 0, 0, "addresses and data together"),
+        (0, 3, 0, "address first, data 3 cycles later"),
+        (3, 0, 0, "data first, address 3 cycles later"),
+        (0, 0, 5, "master holds BREADY low for 5 cycles"),
+        (2, 5, 9, "everything is late"),
+    ]
+
+    for i, (aw_d, w_d, b_d, what) in enumerate(cases):
+        value = 0x1000 + i  # write different values for each case (space them by 1 and non zero)
+        resp = await axi_write(dut, FTW, value, aw_delay=aw_d, w_delay=w_d, b_delay=b_d)
+        assert resp == OKAY, f"{what}: BRESP={resp}"
+        got = await axi_read(dut, FTW)
+        assert got == (value, OKAY), f"{what}: read back {got}, expected {value:#x}"
+        dut._log.info(f"ok: {what}")
+
+@cocotb.test()
+async def test_read_backpressure(dut):
+    """
+    Check that when master delays RREADY, that slave holds RVALID and RDATA (check inside axi_read)
+    """
+    start_clock(dut)
+    await reset_dut(dut)
+    await axi_write(dut, FTW, 0xCAFE0001)
+    assert await axi_read(dut, FTW, r_delay=6) == (0xCAFE0001, OKAY), f"read backpressure test failed with r_delay=6"
+    assert await axi_read(dut, FTW, ar_delay=3, r_delay=6) == (0xCAFE0001, OKAY), f"read backpressure test failed with ar_delay=3, r_delay=6"
+
+@cocotb.test()
+async def test_early_next_address(dut):
+    """
     
     """
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
