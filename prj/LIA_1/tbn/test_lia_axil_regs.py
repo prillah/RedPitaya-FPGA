@@ -124,7 +124,10 @@ async def axi_read(dut, addr, ar_delay=0, r_delay=0):
        the slave must keep RVALID high and RDATA/RRESP unchanged
     """
     ar_done = False
-    held = None                      # (RDATA, RRESP) when RVALID first went high
+    held = None                      # memory that saves (RDATA, RRESP) when RVALID first went high (so saves original, first offered data)
+    # After data is offered is no longer None and thus no longer updated. Lets us compare data on bus now with first offered data.
+    # If they differ, the slave changed RDATA or RRESP while RVALID was high and no handshake had happened yet -> stability rule violation
+    # the write function doesn’t need it, because the payload is only BRESP (2 bits), and in this slave it is constant
     for n in range(TIMEOUT):
         drive = {}
         if not ar_done and n >= ar_delay:
@@ -137,7 +140,7 @@ async def axi_read(dut, addr, ar_delay=0, r_delay=0):
         if s["RVALID"]:
             assert ar_done, f"cycle {n}: RVALID before the read address was accepted"
             now = (s["RDATA"], s["RRESP"])
-            if held is None:
+            if held is None:    # save original data (first offer) after that no longer update held
                 held = now
             assert now == held, f"cycle {n}: RDATA/RRESP changed while RVALID high: {held} -> {now}"
             if drive.get("S_AXI_RREADY"):
@@ -149,7 +152,49 @@ async def axi_read(dut, addr, ar_delay=0, r_delay=0):
             ar_done = True
     raise AssertionError(f"read from 0x{addr:X} timed out (ar_done={ar_done})")
 
+async def peek(dut):
+    """
+    Returns snapshot of outputs without doing anything on bus
+    """
+    return await cycle(dut, {})
 
+###########################################
+### Reference model                     ###
+###########################################
+
+class RegModel:
+    """
+    What the register file SHOULD contain. Reference to compare with Verilog DUT output. Important to keep track of
+    many random write/read and strobe combinations and their history.
+    """
+    def __init__(self): # like hardwares reset values, start at 0
+        self.ftw = 0
+        self.amp = 0
+
+    def write(self, addr, data, strb=0xF):
+        mask = sum(0xFF << (8 * i) for i in range(4) if (strb >> i) & 1)   # build byte mask from the strobe bits
+        # (strb >> i) & 1 extracts bit i of strb, i.e. “is byte lane i enabled?”
+        # 0xFF << (8 * i) is a byte of ones placed at lane i
+        # this generator expression produces one such byte for each enabled lane and sum combines them 
+        # since the lanes never overlap, adding is the same as OR operation
+        idx = (addr >> 2) & 0b11                                           # bits [3:2] select register (mirrors axi_awaddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB] in Verilog)
+        if idx == 0:
+            self.ftw = (self.ftw & ~mask & 0xFFFFFFFF) | (data & mask)    # merge old and new data using mask
+            # self.ftw & ~mask keeps old data in the lanes that were not enabled
+            # data & mask takes new bytes in the enabled lanes -> merge old and new using |
+        elif idx == 1:
+            self.amp = ((self.amp & ~mask) | (data & mask)) & 0xFFFF      # only 16 bits exist
+
+    def read(self, addr):
+        return {0: self.ftw, 1: self.amp}.get((addr >> 2) & 0b11, 0)    # .get(key, 0) returns value of key or default 0 when key is missing
+
+    # When traffic is tested, then apply every write/read to both dut and ref model as follows
+    # await axi_write(dut, addr, data, strb, ...)   # real hardware (simulated using cocotb+verilator)
+    # model.write(addr, data, strb)                 # reference
+
+###########################################
+### Tests                               ###
+###########################################
 
 
 
