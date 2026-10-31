@@ -234,8 +234,49 @@ async def test_write_then_read(dut):
 @cocotb.test()
 async def test_amp_upper_half(dut):
     """
-    
+    since AMP only stores bits 15:0, the upper ones are lost. check that this actually happens (upper ones stay 0)
     """
     start_clock(dut)
     await reset_dut(dut)
+    await axi_write(dut, AMP, 0xDEADBEEF)
+    assert (await peek(dut))["amp"] == 0xBEEF
+    assert await axi_read(dut, AMP) == (0x0000BEEF, OKAY)
 
+@cocotb.test()
+async def test_unused_addresses(dut):
+    """
+    writes to upper addresses 0x08 and 0x0C must complete with no hang and OKAY, and must not touch FTW and AMP
+    """
+    start_clock(dut)
+    await reset_dut(dut)
+    await axi_write(dut, FTW, 0x11111111)
+    await axi_write(dut, AMP, 0x2222)
+    for addr in UNUSED:
+        assert await axi_write(dut, addr, 0xFFFFFFFF) == OKAY
+        assert await axi_read(dut, addr) == (0, OKAY)
+    s = await peek(dut)
+    assert (s["ftw"], s["amp"]) == (0x11111111, 0x2222), f"unused address write leaked into FTW/AMP: {s}"
+
+@cocotb.test()
+async def test_write_strobes(dut):
+    """
+    Test all different strobe patterns. range(16) covers 0000 to 1111 which are all possible patterns, since each strobe has one bit per byte of the write data bus
+    """
+    start_clock(dut)
+    await reset_dut(dut)
+    model = RegModel()  # instantiate a reference model
+    for strb in range(16):  # goes through all strobe possibilities (2**4 possibilities since 4 bytes)
+        for addr in (FTW, AMP):
+            data = random.getrandbits(32)   # generate random data for all different strobe patterns
+            await axi_write(dut, addr, data, strb=strb)
+            model.write(addr, data, strb)
+        s = await peek(dut)
+        assert (s["ftw"], s["amp"]) == (model.ftw, model.amp), (
+            f"strb={strb:04b}: dut ftw={s['ftw']:#x} amp={s['amp']:#x}, "
+            f"model ftw={model.ftw:#x} amp={model.amp:#x}")
+
+@cocotb.test()
+async def test_channel_orderings(dut):
+    """
+    
+    """
