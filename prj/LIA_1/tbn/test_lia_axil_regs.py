@@ -336,10 +336,52 @@ async def test_early_next_address(dut):
 @cocotb.test()
 async def test_read_data_stable_during_write(dut):
     """
-    
+    When read response is waiting for RREADY, write can not changes the same register. Once RVALID is high, RDATA must not change
+    until the handshake. master must receive value from moment of read and not new one.
     """
+    start_clock(dut)
+    await reset_dut(dut)
+    await axi_write(dut, FTW, 0xAAAA_AAAA)  # use underscore as a visual separator, the value of the number does not change
 
+    # read address phase only, RREADY stays low, no read yet
+    for _ in range(TIMEOUT):
+        s = await cycle(dut, dict(S_AXI_ARVALID=1, S_AXI_ARADDR=FTW))   # ready to send address
+        if s["ARREADY"]:    # if AR handshake good break at that point
+            break
+    s = await peek(dut)
+    assert s["RVALID"] and s["RDATA"] == 0xAAAA_AAAA
 
+    # meanwhile the PS writes to FTW (write helper keeps RREADY low and untouched)
+    await axi_write(dut, FTW, 0xBBBB_BBBB)
+
+    s = await cycle(dut, dict(S_AXI_RREADY=1))  # set RREADY to 1 to start the read phase
+    assert s["RVALID"], "RVALID disappeared without handshake"
+    assert s["RDATA"] == 0xAAAA_AAAA, (
+        f"RDATA changed under RVALID: got {s['RDATA']:#x}, the value at read time was 0xaaaaaaaa")
+
+@cocotb.test()
+async def test_random_traffic(dut):
+    """
+    check many different reads/writes with random addresses, strobes and channel delays. compare to reference model
+    """
+    start_clock(dut)
+    await reset_dut
+    rng = random.Random(1234)          # creates random number gen with fixed seed -> makes failures reproducible
+    model = RegModel()
+
+    for i in range(500):
+        addr = rng.choice((FTW, AMP, *UNUSED)) | rng.randrange(4)   # random addresses including unaligned addresses loke 0x07 from 0x4 | 3 = 0x7 for example (rng.randrange(4) gives 0, 1, 2 or 3)
+        d = lambda: rng.choice((0, 0, 0, 1, 2, 5))                  # delay function, but with mostly zero delay
+        if rng.random() < 0.5:  # coin flip to decide between read or write
+            data, strb = rng.getrandbits(32), rng.randrange(16)
+            assert await axi_write(dut, addr, data, strb, d(), d(), d()) == OKAY
+            model.write(addr, data, strb)
+        else:
+            got = await axi_read(dut, addr, d(), d())
+            assert got == (model.read(addr), OKAY), (
+                f"txn {i}: read 0x{addr:X} -> {got}, model {model.read(addr):#x}")
+        s = await peek(dut)
+        assert (s["ftw"], s["amp"]) == (model.ftw, model.amp), f"txn {i}: outputs diverged"
 
 
 
