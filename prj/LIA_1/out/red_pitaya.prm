@@ -3,9 +3,9 @@ Configuration Memory information
 ===================================
 File Format        BIN
 Interface          SMAPX32
-Size               512K
+Size               1M
 Start Address      0x00000000
-End Address        0x0007FFFF
+End Address        0x000FFFFF
 
 Addr1         Addr2         Date                    File(s)
-0x00000000    0x0006C663    Oct  4 21:58:42 2026    out/red_pitaya.bit
+0x00000000    0x0009DE4F    Nov  1 17:05:04 2026    out/red_pitaya.bit
