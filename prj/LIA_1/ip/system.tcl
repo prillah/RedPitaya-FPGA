@@ -1,4 +1,3 @@
-
 ################################################################
 # This is a generated script based on design: system
 #
@@ -142,6 +141,7 @@ if { $bCheckIPs == 1 } {
    set list_check_ips "\
 xilinx.com:ip:processing_system7:5.5\
 xilinx.com:ip:proc_sys_reset:5.0\
+xilinx.com:ip:smartconnect:1.0\
 "
 
    set list_ips_missing ""
@@ -209,13 +209,29 @@ proc create_root_design { parentCell } {
 
   set FIXED_IO [ create_bd_intf_port -mode Master -vlnv xilinx.com:display_processing_system7:fixedio_rtl:1.0 FIXED_IO ]
 
+  # LIA: exported AXI4-Lite master. In the top level it appears as ports M_AXI_LIA_awaddr, and so on...
+  set M_AXI_LIA [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI_LIA ]
+  set_property -dict [ list \
+   CONFIG.PROTOCOL {AXI4LITE} \
+   CONFIG.ADDR_WIDTH {32} \
+   CONFIG.DATA_WIDTH {32} \
+   CONFIG.FREQ_HZ {125000000} \
+   ] $M_AXI_LIA
+
 
   # Create ports
   set M_AXI_GP0_ACLK [ create_bd_port -dir I -type clk -freq_hz 125000000 M_AXI_GP0_ACLK ]
-
   set_property -dict [ list \
-   CONFIG.ASSOCIATED_BUSIF {M_AXI_GP0} \
+   CONFIG.ASSOCIATED_BUSIF {M_AXI_LIA} \
+   CONFIG.ASSOCIATED_RESET {lia_aresetn_o} \
  ] $M_AXI_GP0_ACLK
+  # LIA: was ASSOCIATED_BUSIF {M_AXI_GP0}. GP0 itself is no longer a port, so the bus that leaves
+  # the block design (and is clocked by this port) is M_AXI_LIA.
+
+  # LIA: PLL lock in from the top level, synchronized active-low reset for lia_axil_regs out
+  set pll_locked_i [ create_bd_port -dir I pll_locked_i ]
+  set lia_aresetn_o [ create_bd_port -dir O -from 0 -to 0 -type rst lia_aresetn_o ]
+  set_property CONFIG.POLARITY {ACTIVE_LOW} $lia_aresetn_o
 
   set S_AXI_HP0_aclk [ create_bd_port -dir I -type clk -freq_hz 125000000 S_AXI_HP0_aclk ]
   set S_AXI_HP1_aclk [ create_bd_port -dir I -type clk -freq_hz 125000000 S_AXI_HP1_aclk ]
@@ -241,14 +257,34 @@ proc create_root_design { parentCell } {
   # Create instance: proc_sys_reset_3, and set properties
   set proc_sys_reset_3 [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_3 ]
 
+  # LIA: converts GP0 (AXI3: bursts, IDs) to AXI4-Lite, and decodes the address map (1 slave)
+  set smartconnect_lia [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_lia ]
+  set_property -dict [ list \
+   CONFIG.NUM_SI {1} \
+   CONFIG.NUM_MI {1} \
+ ] $smartconnect_lia
+
+  # LIA: reset generator for the 125 MHz domain (PS reset + PLL lock, released synchronously)
+  set proc_sys_reset_lia [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_lia ]
+
 
   # Create interface connections
   connect_bd_intf_net -intf_net processing_system7_0_ddr [get_bd_intf_ports DDR] [get_bd_intf_pins processing_system7/DDR]
   connect_bd_intf_net -intf_net processing_system7_0_fixed_io [get_bd_intf_ports FIXED_IO] [get_bd_intf_pins processing_system7/FIXED_IO]
+  connect_bd_intf_net -intf_net ps7_m_axi_gp0 [get_bd_intf_pins processing_system7/M_AXI_GP0] [get_bd_intf_pins smartconnect_lia/S00_AXI]   ;# LIA
+  connect_bd_intf_net -intf_net m_axi_lia [get_bd_intf_pins smartconnect_lia/M00_AXI] [get_bd_intf_ports M_AXI_LIA]                       ;# LIA
 
   # Create port connections
   connect_bd_net -net m_axi_gp0_aclk_1  [get_bd_ports M_AXI_GP0_ACLK] \
-  [get_bd_pins processing_system7/M_AXI_GP0_ACLK]
+  [get_bd_pins processing_system7/M_AXI_GP0_ACLK] \
+  [get_bd_pins smartconnect_lia/aclk] \
+  [get_bd_pins proc_sys_reset_lia/slowest_sync_clk]
+  # LIA: smartconnect and reset generator added to the 125 MHz (DAC clock) net
+
+  # LIA: reset generator inputs/outputs
+  connect_bd_net -net pll_locked_1 [get_bd_ports pll_locked_i] [get_bd_pins proc_sys_reset_lia/dcm_locked]
+  connect_bd_net -net lia_interconnect_aresetn [get_bd_pins proc_sys_reset_lia/interconnect_aresetn] [get_bd_pins smartconnect_lia/aresetn]
+  connect_bd_net -net lia_peripheral_aresetn [get_bd_pins proc_sys_reset_lia/peripheral_aresetn] [get_bd_ports lia_aresetn_o]
 
   connect_bd_net -net processing_system7_0_fclk_clk3  [get_bd_pins processing_system7/FCLK_CLK3] \
   [get_bd_pins processing_system7/M_AXI_GP1_ACLK] \
@@ -264,7 +300,9 @@ proc create_root_design { parentCell } {
   [get_bd_pins proc_sys_reset_1/slowest_sync_clk]
 
   connect_bd_net -net processing_system7_FCLK_RESET0_N  [get_bd_pins processing_system7/FCLK_RESET0_N] \
-  [get_bd_pins proc_sys_reset_0/ext_reset_in]
+  [get_bd_pins proc_sys_reset_0/ext_reset_in] \
+  [get_bd_pins proc_sys_reset_lia/ext_reset_in]
+  # LIA: PS reset also drives proc_sys_reset_lia
 
   connect_bd_net -net processing_system7_FCLK_RESET1_N  [get_bd_pins processing_system7/FCLK_RESET1_N] \
   [get_bd_pins proc_sys_reset_2/ext_reset_in]
@@ -289,6 +327,9 @@ proc create_root_design { parentCell } {
   [get_bd_pins processing_system7/S_AXI_HP3_ACLK]
 
   # Create address segments
+  # LIA: 4 KB window at 0x4000_0000 (start of the GP0 range). lia_axil_regs decodes only the
+  # low 4 address bits, so its 16 bytes repeat 256 times inside this window.
+  assign_bd_address -offset 0x40000000 -range 0x00001000 -target_address_space [get_bd_addr_spaces processing_system7/Data] [get_bd_addr_segs M_AXI_LIA/Reg] -force
 
 
   # Restore current instance
@@ -303,8 +344,8 @@ proc create_root_design { parentCell } {
   } [get_bd_cells /processing_system7]
 
 
+  # LIA: removed 'M_AXI_GP0 {memport "M_AXI_GP"}' below: GP0 is now used by our own bus
   set_property PFM.AXI_PORT { \
-    M_AXI_GP0 {memport "M_AXI_GP"} \
     S_AXI_HP0 {memport "S_AXI_HP"} \
   } [get_bd_cells /processing_system7]
 
@@ -318,5 +359,3 @@ proc create_root_design { parentCell } {
 ##################################################################
 
 create_root_design ""
-
-
