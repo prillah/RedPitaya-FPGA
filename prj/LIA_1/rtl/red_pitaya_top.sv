@@ -60,39 +60,6 @@ module red_pitaya_top #(
 );
 
 /////////////////////////////
-// PS connection
-/////////////////////////////
-
-system system_i
-(
-  // MIO
-  .FIXED_IO_mio      (FIXED_IO_mio     ),
-  .FIXED_IO_ps_clk   (FIXED_IO_ps_clk  ),
-  .FIXED_IO_ps_porb  (FIXED_IO_ps_porb ),
-  .FIXED_IO_ps_srstb (FIXED_IO_ps_srstb),
-  .FIXED_IO_ddr_vrn  (FIXED_IO_ddr_vrn ),
-  .FIXED_IO_ddr_vrp  (FIXED_IO_ddr_vrp ),
-  // DDR
-  .DDR_addr          (DDR_addr         ),
-  .DDR_ba            (DDR_ba           ),
-  .DDR_cas_n         (DDR_cas_n        ),
-  .DDR_ck_n          (DDR_ck_n         ),
-  .DDR_ck_p          (DDR_ck_p         ),
-  .DDR_cke           (DDR_cke          ),
-  .DDR_cs_n          (DDR_cs_n         ),
-  .DDR_dm            (DDR_dm           ),
-  .DDR_dq            (DDR_dq           ),
-  .DDR_dqs_n         (DDR_dqs_n        ),
-  .DDR_dqs_p         (DDR_dqs_p        ),
-  .DDR_odt           (DDR_odt          ),
-  .DDR_ras_n         (DDR_ras_n        ),
-  .DDR_reset_n       (DDR_reset_n      ),
-  .DDR_we_n          (DDR_we_n         )
-);
-
-
-
-/////////////////////////////
 // Clock gen
 /////////////////////////////
 
@@ -125,20 +92,120 @@ BUFG bufg_dac_clk_2x (.O (dac_clk_2x), .I (pll_dac_clk_2x));
 BUFG bufg_dac_clk_2p (.O (dac_clk_2p), .I (pll_dac_clk_2p));
 
 // Resets given by PLL lock, so if PLL loses lock on we reset
-// TODO: later include here PS reset too through OR gate (~frstn[0] | ~pll_locked)
+// LIA: the PS reset is handled by proc_sys_reset_lia in the block design and resets the registers
+// (reset of PS sets FTW = 0, AMP = 0 -> silent output) -> Thus DDS/DAC reset stays tied to the PLL lock only
 logic dac_rst;   // active-high
 
 always_ff @(posedge dac_clk_1x)
   dac_rst <= ~pll_locked;
+
+
+
+/////////////////////////////
+// PS connection + AXI resgister comms protocol
+/////////////////////////////
+
+// AXI4-Lite bus from the block design (smartconnect behind PS GP0) to lia_axil_regs.
+// Address is 32 bits wide, but the smartconnect already decoded the 4 KB window, thus only bits [3:0] matter.
+logic [32-1:0] lia_awaddr, lia_araddr, lia_wdata, lia_rdata;  // axi write address, read address, write and read data busses
+logic [ 4-1:0] lia_wstrb; // axi write strobe signal (4 bytes = 32 bits)
+logic [ 2-1:0] lia_bresp, lia_rresp;  // axi write and read response signal (2 bits per convention)
+logic          lia_awvalid, lia_awready, lia_wvalid, lia_wready, lia_bvalid, lia_bready;  // axi address and response write handshake signals
+logic          lia_arvalid, lia_arready, lia_rvalid, lia_rready;  // axi read handshake signal lines
+logic          lia_aresetn;   // synchronized, active low, from proc_sys_reset_lia reset manager IP
+
+system system_i
+(
+  // MIO
+  .FIXED_IO_mio      (FIXED_IO_mio     ),
+  .FIXED_IO_ps_clk   (FIXED_IO_ps_clk  ),
+  .FIXED_IO_ps_porb  (FIXED_IO_ps_porb ),
+  .FIXED_IO_ps_srstb (FIXED_IO_ps_srstb),
+  .FIXED_IO_ddr_vrn  (FIXED_IO_ddr_vrn ),
+  .FIXED_IO_ddr_vrp  (FIXED_IO_ddr_vrp ),
+  // DDR
+  .DDR_addr          (DDR_addr         ),
+  .DDR_ba            (DDR_ba           ),
+  .DDR_cas_n         (DDR_cas_n        ),
+  .DDR_ck_n          (DDR_ck_n         ),
+  .DDR_ck_p          (DDR_ck_p         ),
+  .DDR_cke           (DDR_cke          ),
+  .DDR_cs_n          (DDR_cs_n         ),
+  .DDR_dm            (DDR_dm           ),
+  .DDR_dq            (DDR_dq           ),
+  .DDR_dqs_n         (DDR_dqs_n        ),
+  .DDR_dqs_p         (DDR_dqs_p        ),
+  .DDR_odt           (DDR_odt          ),
+  .DDR_ras_n         (DDR_ras_n        ),
+  .DDR_reset_n       (DDR_reset_n      ),
+  .DDR_we_n          (DDR_we_n         ),
+  // LIA: clock and reset of the whole PS -> PL register path (use dac clk such that have one clock domain with the DDS)
+  .M_AXI_GP0_ACLK    (dac_clk_1x       ),
+  .pll_locked_i      (pll_locked       ),
+  .lia_aresetn_o     (lia_aresetn      ),
+  // LIA: AXI4-Lite master port (AWPROT/ARPROT left open, the slave ignores them)
+  .M_AXI_LIA_awaddr  (lia_awaddr       ),
+  .M_AXI_LIA_awvalid (lia_awvalid      ),
+  .M_AXI_LIA_awready (lia_awready      ),
+  .M_AXI_LIA_wdata   (lia_wdata        ),
+  .M_AXI_LIA_wstrb   (lia_wstrb        ),
+  .M_AXI_LIA_wvalid  (lia_wvalid       ),
+  .M_AXI_LIA_wready  (lia_wready       ),
+  .M_AXI_LIA_bresp   (lia_bresp        ),
+  .M_AXI_LIA_bvalid  (lia_bvalid       ),
+  .M_AXI_LIA_bready  (lia_bready       ),
+  .M_AXI_LIA_araddr  (lia_araddr       ),
+  .M_AXI_LIA_arvalid (lia_arvalid      ),
+  .M_AXI_LIA_arready (lia_arready      ),
+  .M_AXI_LIA_rdata   (lia_rdata        ),
+  .M_AXI_LIA_rresp   (lia_rresp        ),
+  .M_AXI_LIA_rvalid  (lia_rvalid       ),
+  .M_AXI_LIA_rready  (lia_rready       )
+);
+
+// declare ftw and amp regs and conenct through our PL side axi slave module (connect to smart connect master interface)
+logic [PHASE_WIDTH-1:0] ftw;  // from register 0x00
+logic [16-1:0]          amp;  // from register 0x04
+
+lia_axil_regs #(
+  .C_S_AXI_DATA_WIDTH (32),
+  .C_S_AXI_ADDR_WIDTH (4 )  // only need lower 4 bits since smart connect already decoded whole address window
+) i_regs (
+  .ftw_o          (ftw             ),
+  .amp_o          (amp             ),
+  .S_AXI_ACLK     (dac_clk_1x      ),
+  .S_AXI_ARESETN  (lia_aresetn     ),
+  .S_AXI_AWADDR   (lia_awaddr[3:0] ),
+  .S_AXI_AWPROT  (3'b000           ),
+  .S_AXI_AWVALID (lia_awvalid      ),
+  .S_AXI_AWREADY (lia_awready      ),
+  .S_AXI_WDATA   (lia_wdata        ),
+  .S_AXI_WSTRB   (lia_wstrb        ),
+  .S_AXI_WVALID  (lia_wvalid       ),
+  .S_AXI_WREADY  (lia_wready       ),
+  .S_AXI_BRESP   (lia_bresp        ),
+  .S_AXI_BVALID  (lia_bvalid       ),
+  .S_AXI_BREADY  (lia_bready       ),
+  .S_AXI_ARADDR  (lia_araddr[3:0]  ),
+  .S_AXI_ARPROT  (3'b000           ),
+  .S_AXI_ARVALID (lia_arvalid      ),
+  .S_AXI_ARREADY (lia_arready      ),
+  .S_AXI_RDATA   (lia_rdata        ),
+  .S_AXI_RRESP   (lia_rresp        ),
+  .S_AXI_RVALID  (lia_rvalid       ),
+  .S_AXI_RREADY  (lia_rready       )
+);
+
+
 
 /////////////////////////////
 // DDS instant
 /////////////////////////////
 
 // temporary hardcoded frequency-tuning word for 1 MHz @ 125 MHz clk (round(1e6 / 125e6 * 2^32) = 42949673)
-// TODO: Later connect phase word to register connected to PS
-logic [PHASE_WIDTH-1:0] ftw;
-assign ftw = 32'd34359738;
+// logic [PHASE_WIDTH-1:0] ftw;
+// assign ftw = 32'd34359738;
+// LIA: ftw comes now from register 0x00 and is no longer hardcoded
 
 logic signed [OUT_WIDTH-1:0] dds_sin, dds_cos;
 
@@ -159,9 +226,21 @@ dds_cordic #(
 // Convert from 2s complement (DDS output) to straight binary of DAC (signed-to-unsigned) + negative-slope conversion (due to inversion at opamp)
 logic [14-1:0] dac_dat_a, dac_dat_b;
 
+// Amplitude scaling with gain from register 0x04 (0 = silent, 0xFFFF = full scale).
+// Both channels get their own scaler to make the latency the same (latency of 2 clk cycles)
+// then sin/cos stay exactly 90 degrees apart
+logic signed [OUT_WIDTH-1:0] cos_scaled, sin_scaled;
+
+amp_scale #(.DATA_WIDTH(OUT_WIDTH), .GAIN_WIDTH(16)) i_amp_cos (
+    .clk(dac_clk_1x), .din(dds_cos), .gain(amp), .dout(cos_scaled)
+);
+amp_scale #(.DATA_WIDTH(OUT_WIDTH), .GAIN_WIDTH(16)) i_amp_sin (
+    .clk (dac_clk_1x), .din (dds_sin), .gain (amp), .dout (sin_scaled)
+);
+
 always_ff @(posedge dac_clk_1x) begin
-    dac_dat_a <= {dds_cos[14-1], ~dds_cos[14-2:0]};
-    dac_dat_b <= {dds_sin[14-1], ~dds_sin[14-2:0]};
+    dac_dat_a <= {cos_scaled[14-1], ~cos_scaled[14-2:0]};
+    dac_dat_b <= {sin_scaled[14-1], ~sin_scaled[14-2:0]};
 end
 
 // ODDR (output double data rate) -> XILINX primitive 
