@@ -31,6 +31,11 @@ pytest.mark.parameterize("freq", "ftw", [
 def test_known_ftw_values(freq, ftw):
     assert freq_to_ftw(freq) == ftw
 
+# no need for pytest macro here because looks for test_... in general
+def test_ftw_is_int():
+    assert isinstance(freq_to_ftw(1234.5), int)
+
+
 
 
 
