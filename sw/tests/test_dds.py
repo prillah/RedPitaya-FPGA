@@ -13,7 +13,7 @@ def dds():
     """
     fresh dds on fresh fake reg file for every test
     """
-    return Dds(FakeRegisters)
+    return Dds(FakeRegisters())
 
 def test_set_frequency_writes_ftw(dds):
     actual = dds.set_frequency(1e6)

@@ -30,7 +30,7 @@ def _check_access(offset, value = None):
     """
     Reject access to hardware already at this stage, if address or value are non sensical
     """
-    if not 0 <= offset <= MAP_SIZE:
+    if not 0 <= offset < MAP_SIZE:
         raise ValueError(f"offset {offset:#x} outside the 4 KB window")
     if offset % 4:
         raise ValueError(f"offset {offset:#x} is not 32-bit aligned")
@@ -113,7 +113,7 @@ class DevMemRegisters:
 
     def write32(self, offset, value):
         _check_access(offset, value)
-        self.words[offset//4] = value   # // is integer division such that 0x04 becomes 1 and 0x00 0
+        self._words[offset//4] = value   # // is integer division such that 0x04 becomes 1 and 0x00 0
         # Assigning to self._words[1] stores one 32-bit word at byte 4 of the page
         # i.e. at physical address 0x4000_0004, which the CPU turns into one AXI write to AMP
 
