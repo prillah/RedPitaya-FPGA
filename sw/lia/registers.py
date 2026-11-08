@@ -124,8 +124,25 @@ class DevMemRegisters:
         return self._words[offset // 4]
 
     def close(self):
-        
+        # cleaning up in reverse order of creation: first the view, then map, then file descriptor
+        if getattr(self, "_words", None) is not None:
+            self._words.release()   # release for memoryview
+            self._words = None
+        if getattr(self, "_mm", None ) is not None:  # getattr(obj, "name", None) returns None if the name of the attribute does not exist (obj.name or getattr(obj, "name") would raise a Attribute error)
+            self._mm.close()    # mmap object owns an operating-system resource -> region of program’s address space mapped onto /dev/mem. close() asks operating system to remove the mapping
+            self._mm = None
+        if getattr(self, "_fd", None) is not None:
+            os.close(self._fd)  # self._fd is just an integer. The integer is the operating system’s number for the open file /dev/mem. To close it, call the function os.close with that number, which performs the system call close.
+            self._fd = None
 
+    # make an object usable with with (with DevMemRegisters() as regs:   # __enter__ runs; its return value becomes 'regs')
+    # leaving the block, by any route, runs __exit__, so close() always happens
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+    
 
 
 
