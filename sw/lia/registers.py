@@ -64,7 +64,7 @@ class FakeRegisters:
         index = (offset >> 2) & 0b11
         return {0: self.ftw, 1: self.amp}.get(index, 0)
 
-    def close():    # nothing to really close, so just pass/do nothing
+    def close(self):    # nothing to really close, so just pass/do nothing
         pass
 
     def __enter__(self):
